@@ -33,7 +33,7 @@ plugin a na iPhonu či Androidu se používá přes zástupce na ploše.
 ## Rychlý start
 
 **Chci aplikaci na svém webu s WordPressem:**
-stáhněte `nakupak-wordpress-plugin.zip` ze stránky [Releases](../../releases) (nebo ho
+stáhněte `nakupak-wordpress-plugin.zip` ze stránky [Releases](https://github.com/PokRom/nakupak/releases) (nebo ho
 [sestavte ze zdrojového kódu](docs/INSTALACE.md#sestavení-ze-zdrojového-kódu)) a nahrajte ho
 ve WordPressu přes **Pluginy → Přidat nový → Nahrát plugin**.
 Podrobně v [návodu na instalaci](docs/INSTALACE.md).

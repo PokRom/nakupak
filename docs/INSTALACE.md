@@ -98,7 +98,7 @@ serverová část.
 ## Sestavení ze zdrojového kódu
 
 ```bash
-git clone https://github.com/UZIVATEL/nakupak.git
+git clone https://github.com/PokRom/nakupak.git
 cd nakupak
 npm install
 ```
