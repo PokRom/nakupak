@@ -134,7 +134,9 @@ export function AddItemBar({ onAdd, onBulk, placeholder = 'Přidat položku…',
   const parsed = parseItem(text);
   const inPantry = showPantryHint && parsed.name.length > 1 ? findInPantry(state, parsed.name) : null;
 
-  function submit(name = text) {
+  // Text bereme přímo z pole: iPhone může mít rozepsané slovo z návrhů klávesnice,
+  // které se do stavu Reactu ještě nepropsalo.
+  function submit(name = inputRef.current?.value ?? text) {
     const raw = name.trim();
     if (!raw) return;
     if (/[\n,;]/.test(raw) && onBulk) {
@@ -165,7 +167,16 @@ export function AddItemBar({ onAdd, onBulk, placeholder = 'Přidat položku…',
           enterKeyHint="done"
           autoComplete="off"
         />
-        <button className="btn primary" type="submit" aria-label="Přidat">＋</button>
+        {/* Na iPhonu by klepnutí nejdřív zavřelo klávesnici, stránka by poskočila a klepnutí
+            by minulo tlačítko. Proto pole fokus neztratí a přidáváme přímo při klepnutí. */}
+        <button
+          className="btn primary"
+          type="button"
+          aria-label="Přidat"
+          onPointerDown={(e) => e.preventDefault()}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => submit()}
+        >＋</button>
       </form>
       {inPantry && (
         <div className="hint warn">
