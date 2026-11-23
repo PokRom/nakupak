@@ -1,0 +1,4 @@
+# Jednotné konce řádků (LF) ve všech systémech, obrázky jako binární soubory.
+* text=auto eol=lf
+*.png binary
+*.jpg binary

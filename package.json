@@ -1,0 +1,27 @@
+{
+  "name": "nakupak",
+  "version": "0.2.1",
+  "description": "Chytrý nákupní seznam seřazený podle sekcí v obchodě, s lednicí, profily a sdílením přes WordPress plugin.",
+  "license": "GPL-2.0-or-later",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview --host",
+    "plugin": "vite build && node scripts/build-plugin.mjs",
+    "test": "node scripts/sync-test.mjs",
+    "mock": "node scripts/mock-server.mjs"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.3",
+    "vite": "^5.4.10"
+  }
+}
