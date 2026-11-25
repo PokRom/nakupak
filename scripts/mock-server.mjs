@@ -1,24 +1,26 @@
 // Testovací server, který napodobuje WordPress plugin (wp-plugin/nakupak.php):
 // /nakupak/ = aplikace z dist/, /nakupak/api = stejný synchronizační protokol jako v PHP.
-// Použití: npm run build && node scripts/mock-server.mjs [port] [kód]
+// Použití: npm run build && node scripts/mock-server.mjs [port] [kód1,kód2,…]
+// Každý kód je jedna domácnost s vlastními daty.
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const root = path.resolve(import.meta.dirname, '..', 'dist');
 const port = +(process.argv[2] || 5182);
-const CODE = (process.argv[3] || 'TEST-TEST-TEST').toUpperCase().replace(/[^A-Z0-9]/g, '');
+const norm = (c) => String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+const CODES = (process.argv[3] || 'TEST-TEST-TEST,DRUH-A-DOMA').split(',').map(norm);
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png' };
 
-// „Databáze“: k → { data, deleted, rev }
+// „Databáze“: domácnost|k → { household, k, data, deleted, rev }
 const table = new Map();
 let rev = 0;
 let purged = 0;
 let requests = 0;
 
 function api(body, headerCode) {
-  const given = String(headerCode || body.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-  if (given !== CODE) return [401, { error: 'bad_code' }];
+  const household = CODES.indexOf(norm(headerCode || body.code)) + 1;
+  if (!household) return [401, { error: 'bad_code' }];
   const since = Math.max(0, parseInt(body.since, 10) || 0);
   const changes = Array.isArray(body.changes) ? body.changes : [];
   const clean = new Map();
@@ -30,12 +32,13 @@ function api(body, headerCode) {
   }
   if (clean.size) {
     rev++;
-    for (const [k, d] of clean) table.set(k, { data: d, deleted: d === null, rev });
+    for (const [k, d] of clean) table.set(household + '|' + k, { household, k, data: d, deleted: d === null, rev });
   }
   const full = since <= 0 || since < purged || since > rev;
   const records = [];
-  for (const [k, r] of table) {
-    if (full ? !r.deleted : r.rev > since) records.push({ k, d: r.deleted ? null : r.data });
+  for (const r of table.values()) {
+    if (r.household !== household) continue;
+    if (full ? !r.deleted : r.rev > since) records.push({ k: r.k, d: r.deleted ? null : r.data });
   }
   return [200, { rev, full, records }];
 }
@@ -66,4 +69,4 @@ http.createServer(async (req, res) => {
     } catch {}
   }
   res.writeHead(404); res.end('not found');
-}).listen(port, () => console.log(`http://localhost:${port}/nakupak/  (kód ${CODE})`));
+}).listen(port, () => console.log(`http://localhost:${port}/nakupak/  (kódy ${CODES.join(', ')})`));

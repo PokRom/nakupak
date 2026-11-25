@@ -465,32 +465,43 @@ dostane `full: true` a smazané záznamy si dopočítá podle 10.5.
 
 ```sql
 CREATE TABLE wp_nakupak_records (
-  k       varchar(191) NOT NULL,    -- klíč záznamu, např. item:x8f2k1
-  data    longtext NULL,            -- JSON záznamu
-  deleted tinyint(1) NOT NULL DEFAULT 0,
-  rev     bigint unsigned NOT NULL DEFAULT 0,
-  updated datetime NOT NULL,
-  PRIMARY KEY (k),
-  KEY rev (rev)                     -- rychlé „co se změnilo od revize X“
+  household bigint unsigned NOT NULL DEFAULT 1,  -- domácnost, které záznam patří
+  k         varchar(191) NOT NULL,    -- klíč záznamu, např. item:x8f2k1
+  data      longtext NULL,            -- JSON záznamu
+  deleted   tinyint(1) NOT NULL DEFAULT 0,
+  rev       bigint unsigned NOT NULL DEFAULT 0,
+  updated   datetime NOT NULL,
+  PRIMARY KEY (household, k),
+  KEY household_rev (household, rev)  -- rychlé „co se v domácnosti změnilo od revize X“
 );
 ```
 
-- Zápis používá `REPLACE`, takže stejný klíč se přepíše.
+- **Domácnosti** jsou ve volbě `nakupak_households` (id → jméno, kód, datum vytvoření). API podle
+  kódu najde domácnost a čte i zapisuje jen její záznamy, takže různé domácnosti mohou mít stejné
+  klíče (např. výchozí sekce) bez vzájemného ovlivnění.
+- Zápis používá `REPLACE`, takže stejný klíč v téže domácnosti se přepíše.
+- Číslo revize je společné pro všechny domácnosti. Telefon tím o nic nepřichází, jen čísla jeho
+  revizí nejdou po jedné.
 - **Číslo revize** je ve volbě `nakupak_rev`. Aby dva současné požadavky nedostaly stejnou
   revizi, celý zápis probíhá pod databázovým zámkem `GET_LOCK('nakupak_sync')`.
 - Revize se čte přímo dotazem do databáze, ne přes cache voleb WordPressu, aby nebyla zastaralá.
 
 ### Instalace a aktualizace
 
-- Při aktivaci se vytvoří tabulka (`dbDelta`), vygeneruje kód a obnoví přepisovací pravidla.
+- Při aktivaci se vytvoří tabulka (`dbDelta`), první domácnost s kódem a obnoví se přepisovací pravidla.
+- Při přechodu z verze 0.2.x (jedna domácnost) plugin tabulce přidá sloupec `household`, dosavadní
+  data i kód převede na domácnost č. 1 a změní primární klíč. Vše probíhá pod zámkem
+  `GET_LOCK('nakupak_install')`, aby převod neproběhl dvakrát. Během převodu API vrací `503`
+  a telefony to za chvíli zkusí znovu.
 - Při nahrání nové verze přes „Nahradit stávající“ WordPress aktivační háček **nespouští**.
   Plugin proto při každém načtení porovná verzi schématu (`NAKUPAK_SCHEMA`) a v případě změny
   instalaci zopakuje.
 
 ### Administrace
 
-Stránka **Nastavení → Nákupák** zobrazuje kód domácnosti, počet a velikost uložených záznamů
-a tlačítka *Vytvořit nový kód* a *Smazat sdílená data*. Formuláře jsou chráněné kontrolou
+Stránka **Nastavení → Nákupák** zobrazuje tabulku domácností: jméno (komu kód patří), kód,
+počet a velikost uložených záznamů a tlačítka *Nový kód*, *Smazat data* a *Smazat domácnost*.
+Pod ní je formulář pro přidání domácnosti. Formuláře jsou chráněné kontrolou
 oprávnění (`manage_options`) a nonce proti CSRF.
 
 ---
@@ -547,9 +558,10 @@ Testované scénáře:
 8. smazaný seznam, jehož položku druhý telefon mezitím upravil, zmizí na obou,
 9. telefon, který byl offline během úklidu tombstonů, dostane úplný stav a nepřijde o nové lokální položky,
 10. spojení dat: třetí telefon přidá svá data ke sdíleným,
-11. kolo bez změn nic neodešle a stav nezmění.
+11. kolo bez změn nic neodešle a stav nezmění,
+12. druhá domácnost má vlastní data a nevidí data první (ani u stejných klíčů, jako jsou výchozí sekce).
 
-Výsledek: **11 / 11 testů prošlo.**
+Výsledek: **12 / 12 testů prošlo.**
 
 ### Testovací server a dva „telefony“ v prohlížeči
 
@@ -576,7 +588,6 @@ stejně jako plugin a implementuje stejné API. Dva telefony se simulují dvěma
 
 **Omezení současné verze:**
 
-- jeden kód domácnosti na web (více domácností by vyžadovalo oddělená data),
 - zařazení do sekcí je založené na slovníku a jednoduchém ořezu koncovek, takže
   nezná všechny tvary,
 - konflikt na stejné položce se řeší „poslední vyhrává“, nikoli sloučením jednotlivých polí,
@@ -585,7 +596,6 @@ stejně jako plugin a implementuje stejné API. Dva telefony se simulují dvěma
 
 **Možná rozšíření:**
 
-- více domácností s vlastními kódy,
 - skenování čárových kódů (např. databáze Open Food Facts),
 - hlasové zadávání položek,
 - push notifikace pro trvanlivost a naplánované profily („každý pátek týdenní nákup“),

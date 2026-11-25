@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name:       Nákupák
- * Description:       Chytrý nákupní seznam seřazený podle sekcí v obchodě, s přehledem o zásobách doma. Aplikace běží na adrese /nakupak/, kód domácnosti pro sdílení najdeš v Nastavení → Nákupák.
+ * Description:       Chytrý nákupní seznam seřazený podle sekcí v obchodě, s přehledem o zásobách doma. Aplikace běží na adrese /nakupak/, domácnosti a jejich kódy pro sdílení najdeš v Nastavení → Nákupák.
  * Version:           {{VERSION}}
  * Requires at least: 5.0
  * Requires PHP:      7.0
@@ -19,7 +19,7 @@ define('NAKUPAK_DIR', plugin_dir_path(__FILE__) . 'app/');
 define('NAKUPAK_URL', plugin_dir_url(__FILE__) . 'app/');
 // Zvýšit při změně adres nebo databázové tabulky – projeví se i po „Nahradit stávající“,
 // kdy WordPress aktivační hook nespouští.
-define('NAKUPAK_SCHEMA', 2);
+define('NAKUPAK_SCHEMA', 3);
 define('NAKUPAK_TOMBSTONE_DAYS', 30);
 define('NAKUPAK_MAX_RECORD', 200000);
 define('NAKUPAK_MAX_CHANGES', 10000);
@@ -53,27 +53,59 @@ add_filter('query_vars', function ($vars) {
 
 function nakupak_install() {
     global $wpdb;
-    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-    $table = nakupak_table();
-    $charset = $wpdb->get_charset_collate();
-    dbDelta("CREATE TABLE $table (
+    // Instalace může běžet souběžně ve dvou požadavcích – změny tabulky jen pod zámkem.
+    if ((int) $wpdb->get_var("SELECT GET_LOCK('nakupak_install', 10)") !== 1) {
+        return;
+    }
+    try {
+        if ((int) get_option('nakupak_schema') === NAKUPAK_SCHEMA) {
+            return; // mezitím nainstaloval jiný požadavek
+        }
+        $table = nakupak_table();
+        $exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) === $table;
+
+        if (!$exists) {
+            require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+            $charset = $wpdb->get_charset_collate();
+            dbDelta("CREATE TABLE $table (
+  household bigint(20) unsigned NOT NULL DEFAULT 1,
   k varchar(191) NOT NULL,
   data longtext NULL,
   deleted tinyint(1) NOT NULL DEFAULT 0,
   rev bigint(20) unsigned NOT NULL DEFAULT 0,
   updated datetime NOT NULL,
-  PRIMARY KEY  (k),
+  PRIMARY KEY  (household,k),
+  KEY household_rev (household,rev),
   KEY rev (rev)
 ) $charset;");
+        } elseif (!$wpdb->get_var("SHOW COLUMNS FROM $table LIKE 'household'")) {
+            // Verze 0.2.x měla jen jednu domácnost: dosavadní data patří domácnosti č. 1.
+            $wpdb->query("ALTER TABLE $table
+                ADD COLUMN household bigint(20) unsigned NOT NULL DEFAULT 1 FIRST,
+                DROP PRIMARY KEY,
+                ADD PRIMARY KEY (household, k),
+                ADD KEY household_rev (household, rev)");
+        }
 
-    add_option('nakupak_rev', '0', '', 'no');
-    add_option('nakupak_purged_rev', '0', '', 'no');
-    if (!get_option('nakupak_code')) {
-        update_option('nakupak_code', nakupak_generate_code(), false);
+        add_option('nakupak_rev', '0', '', 'no');
+        add_option('nakupak_purged_rev', '0', '', 'no');
+
+        if (!is_array(get_option('nakupak_households'))) {
+            // Dosavadní kód (pokud byl) zůstává platný pro první domácnost.
+            $old = (string) get_option('nakupak_code');
+            update_option('nakupak_households', array(
+                1 => array('name' => 'Moje domácnost', 'code' => $old !== '' ? $old : nakupak_generate_code(), 'created' => current_time('mysql')),
+            ), false);
+            update_option('nakupak_next_household', 2, false);
+            delete_option('nakupak_code');
+        }
+
+        nakupak_rewrite_rules();
+        flush_rewrite_rules();
+        update_option('nakupak_schema', NAKUPAK_SCHEMA);
+    } finally {
+        $wpdb->query("SELECT RELEASE_LOCK('nakupak_install')");
     }
-    nakupak_rewrite_rules();
-    flush_rewrite_rules();
-    update_option('nakupak_schema', NAKUPAK_SCHEMA);
 }
 register_activation_hook(__FILE__, 'nakupak_install');
 register_deactivation_hook(__FILE__, 'flush_rewrite_rules');
@@ -104,6 +136,42 @@ function nakupak_format_code($code) {
 
 function nakupak_app_url() {
     return home_url('/' . NAKUPAK_SLUG . '/');
+}
+
+/* ---------------------------------------------------------------------------
+ * Domácnosti: id => { name, code, created }. Každá má vlastní data v tabulce.
+ * ------------------------------------------------------------------------ */
+
+function nakupak_households() {
+    $h = get_option('nakupak_households');
+    return is_array($h) ? $h : array();
+}
+
+function nakupak_save_households($households) {
+    update_option('nakupak_households', $households, false);
+}
+
+/** Id domácnosti podle kódu, nebo 0. Porovnává všechny kódy v konstantním čase. */
+function nakupak_household_by_code($given) {
+    $found = 0;
+    if ($given === '') {
+        return 0;
+    }
+    foreach (nakupak_households() as $id => $h) {
+        if (hash_equals((string) $h['code'], $given)) {
+            $found = (int) $id;
+        }
+    }
+    return $found;
+}
+
+/** Nový kód, který nemá žádná jiná domácnost. */
+function nakupak_unique_code() {
+    $codes = wp_list_pluck(nakupak_households(), 'code');
+    do {
+        $code = nakupak_generate_code();
+    } while (in_array($code, $codes, true));
+    return $code;
 }
 
 /* ---------------------------------------------------------------------------
@@ -191,6 +259,12 @@ function nakupak_api() {
         return;
     }
 
+    // Probíhá převod dat na novou verzi – telefon to za chvíli zkusí znovu (ne „neplatný kód“).
+    if ((int) get_option('nakupak_schema') !== NAKUPAK_SCHEMA) {
+        nakupak_json(503, array('error' => 'upgrading'));
+        return;
+    }
+
     $body = json_decode(file_get_contents('php://input'), true);
     if (!is_array($body)) {
         nakupak_json(400, array('error' => 'bad_json'));
@@ -202,9 +276,8 @@ function nakupak_api() {
     if ($given === '' && isset($body['code']) && is_string($body['code'])) {
         $given = $body['code'];
     }
-    $given = nakupak_normalize_code($given);
-    $code = (string) get_option('nakupak_code');
-    if ($code === '' || $given === '' || !hash_equals($code, $given)) {
+    $household = nakupak_household_by_code(nakupak_normalize_code($given));
+    if ($household === 0) {
         // Ochrana proti hádání kódu: po 20 chybných pokusech z jedné adresy hodinu jen 429.
         // Správný kód se nikdy neblokuje (za Cloudflare apod. mívají všichni stejnou IP).
         $fail_key = 'nakupak_fail_' . md5(nakupak_client_ip());
@@ -256,12 +329,13 @@ function nakupak_api() {
             $now = current_time('mysql', true);
             foreach ($clean as $k => $d) {
                 $wpdb->replace($table, array(
-                    'k'       => $k,
-                    'data'    => $d,
-                    'deleted' => $d === null ? 1 : 0,
-                    'rev'     => $rev,
-                    'updated' => $now,
-                ), array('%s', '%s', '%d', '%d', '%s'));
+                    'household' => $household,
+                    'k'         => $k,
+                    'data'      => $d,
+                    'deleted'   => $d === null ? 1 : 0,
+                    'rev'       => $rev,
+                    'updated'   => $now,
+                ), array('%d', '%s', '%s', '%d', '%d', '%s'));
             }
             update_option('nakupak_rev', (string) $rev, false);
         }
@@ -274,10 +348,11 @@ function nakupak_api() {
         $purged = (int) $wpdb->get_var($wpdb->prepare("SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", 'nakupak_purged_rev'));
         // Revize telefonu vyšší než serverová = databáze se vrátila ze zálohy → poslat vše.
         $full = $since <= 0 || $since < $purged || $since > $rev;
+        // Revize je společná pro všechny domácnosti; data se vrací jen té, které patří kód.
         if ($full) {
-            $rows = $wpdb->get_results("SELECT k, data, deleted FROM $table WHERE deleted = 0", ARRAY_A);
+            $rows = $wpdb->get_results($wpdb->prepare("SELECT k, data, deleted FROM $table WHERE household = %d AND deleted = 0", $household), ARRAY_A);
         } else {
-            $rows = $wpdb->get_results($wpdb->prepare("SELECT k, data, deleted FROM $table WHERE rev > %d", $since), ARRAY_A);
+            $rows = $wpdb->get_results($wpdb->prepare("SELECT k, data, deleted FROM $table WHERE household = %d AND rev > %d", $household, $since), ARRAY_A);
         }
     } finally {
         $wpdb->query("SELECT RELEASE_LOCK('nakupak_sync')");
@@ -311,6 +386,17 @@ add_action('admin_menu', function () {
     add_options_page('Nákupák', 'Nákupák', 'manage_options', 'nakupak', 'nakupak_admin_page');
 });
 
+/** Smaže data jedné domácnosti; telefony si při další synchronizaci stáhnou prázdný stav. */
+function nakupak_wipe_household($id) {
+    global $wpdb;
+    $table = nakupak_table();
+    $wpdb->query($wpdb->prepare("DELETE FROM $table WHERE household = %d", $id));
+    // Revizi nezahazujeme – telefony díky „purged“ dostanou úplný (prázdný) stav.
+    $rev = (int) get_option('nakupak_rev', 0) + 1;
+    update_option('nakupak_rev', (string) $rev, false);
+    update_option('nakupak_purged_rev', (string) $rev, false);
+}
+
 function nakupak_admin_page() {
     global $wpdb;
     if (!current_user_can('manage_options')) {
@@ -318,25 +404,46 @@ function nakupak_admin_page() {
     }
     $table = nakupak_table();
     $notice = '';
+    $households = nakupak_households();
 
     if (isset($_POST['nakupak_action']) && check_admin_referer('nakupak_admin')) {
         $action = sanitize_key(wp_unslash($_POST['nakupak_action']));
-        if ($action === 'new_code') {
-            update_option('nakupak_code', nakupak_generate_code(), false);
-            $notice = 'Vytvořen nový kód. Zadej ho znovu ve všech telefonech (Nastavení → Sdílení).';
-        } elseif ($action === 'wipe') {
-            $wpdb->query("DELETE FROM $table");
-            // Revizi nezahazujeme – telefony si díky „purged“ stáhnou nový (prázdný) stav.
-            $rev = (int) get_option('nakupak_rev', 0) + 1;
-            update_option('nakupak_rev', (string) $rev, false);
-            update_option('nakupak_purged_rev', (string) $rev, false);
-            $notice = 'Sdílená data byla smazána. Telefony si při příští synchronizaci ponechají jen nové změny.';
+        $id = isset($_POST['household']) ? (int) $_POST['household'] : 0;
+        $name = isset($_POST['name']) ? trim(sanitize_text_field(wp_unslash($_POST['name']))) : '';
+
+        if ($action === 'add') {
+            $next = max((int) get_option('nakupak_next_household', 2), $households ? max(array_keys($households)) + 1 : 1);
+            $households[$next] = array('name' => $name !== '' ? $name : 'Domácnost ' . $next, 'code' => nakupak_unique_code(), 'created' => current_time('mysql'));
+            update_option('nakupak_next_household', $next + 1, false);
+            nakupak_save_households($households);
+            $notice = 'Domácnost „' . $households[$next]['name'] . '“ je vytvořená. Kód najdeš v tabulce níže.';
+        } elseif (isset($households[$id])) {
+            $label = $households[$id]['name'];
+            if ($action === 'rename' && $name !== '') {
+                $households[$id]['name'] = $name;
+                nakupak_save_households($households);
+                $notice = 'Jméno uloženo: „' . $name . '“.';
+            } elseif ($action === 'new_code') {
+                $households[$id]['code'] = nakupak_unique_code();
+                nakupak_save_households($households);
+                $notice = 'Domácnost „' . $label . '“ má nový kód. Je potřeba ho znovu zadat v jejích telefonech.';
+            } elseif ($action === 'wipe') {
+                nakupak_wipe_household($id);
+                $notice = 'Data domácnosti „' . $label . '“ byla smazána.';
+            } elseif ($action === 'delete') {
+                nakupak_wipe_household($id);
+                unset($households[$id]);
+                nakupak_save_households($households);
+                $notice = 'Domácnost „' . $label . '“ i její data byly smazány. Její kód už neplatí.';
+            }
         }
     }
 
-    $code = (string) get_option('nakupak_code');
-    $stats = $wpdb->get_row("SELECT COUNT(*) AS n, COALESCE(SUM(LENGTH(data)), 0) AS bytes FROM $table WHERE deleted = 0", ARRAY_A);
-    $kb = $stats ? round(((int) $stats['bytes']) / 1024, 1) : 0;
+    $stats = array();
+    foreach ((array) $wpdb->get_results("SELECT household, COUNT(*) AS n, COALESCE(SUM(LENGTH(data)), 0) AS bytes FROM $table WHERE deleted = 0 GROUP BY household", ARRAY_A) as $row) {
+        $stats[(int) $row['household']] = $row;
+    }
+    $code_style = 'font-family:monospace;font-size:18px;font-weight:bold;letter-spacing:.1em;user-select:all;white-space:nowrap;';
     ?>
     <div class="wrap">
         <h1>Nákupák</h1>
@@ -346,27 +453,66 @@ function nakupak_admin_page() {
 
         <p>Aplikace: <a href="<?php echo esc_url(nakupak_app_url()); ?>" target="_blank"><?php echo esc_html(nakupak_app_url()); ?></a></p>
 
-        <h2>Kód domácnosti</h2>
-        <p>Zadej ho v aplikaci v <strong>Nastavení → Sdílení s domácností</strong>. Všechny telefony se stejným kódem sdílí seznamy, lednici, profily i obchody.</p>
-        <p style="font-family:monospace;font-size:28px;font-weight:bold;letter-spacing:.12em;background:#fff;border:1px solid #ccd0d4;display:inline-block;padding:12px 20px;border-radius:6px;user-select:all;">
-            <?php echo esc_html(nakupak_format_code($code)); ?>
-        </p>
-        <p class="description">Kód je jako heslo – dej ho jen lidem, se kterými chceš seznamy sdílet.</p>
+        <h2>Domácnosti</h2>
+        <p>Každá domácnost má vlastní kód a vlastní data. Telefony se stejným kódem sdílí seznamy, zásoby, profily i obchody;
+            různé domácnosti svá data navzájem nevidí. Kód se zadává v aplikaci v <strong>Nastavení → Sdílení s domácností</strong>.</p>
 
-        <h2>Uložená data</h2>
-        <p><?php echo (int) ($stats ? $stats['n'] : 0); ?> záznamů, celkem <?php echo esc_html(number_format_i18n($kb, 1)); ?> kB. Staré smazané položky se uklízí automaticky.</p>
+        <table class="widefat striped" style="max-width:1100px;">
+            <thead>
+                <tr><th style="width:34%;">Komu kód patří</th><th>Kód domácnosti</th><th>Data</th><th>Správa</th></tr>
+            </thead>
+            <tbody>
+            <?php foreach ($households as $id => $h) :
+                $s = isset($stats[$id]) ? $stats[$id] : array('n' => 0, 'bytes' => 0);
+                $kb = round(((int) $s['bytes']) / 1024, 1); ?>
+                <tr>
+                    <td>
+                        <form method="post" style="display:flex;gap:6px;">
+                            <?php wp_nonce_field('nakupak_admin'); ?>
+                            <input type="hidden" name="nakupak_action" value="rename">
+                            <input type="hidden" name="household" value="<?php echo (int) $id; ?>">
+                            <input type="text" name="name" value="<?php echo esc_attr($h['name']); ?>" class="regular-text" style="flex:1;min-width:0;" aria-label="Komu kód patří">
+                            <?php submit_button('Uložit', 'secondary', 'submit', false); ?>
+                        </form>
+                    </td>
+                    <td><span style="<?php echo esc_attr($code_style); ?>"><?php echo esc_html(nakupak_format_code($h['code'])); ?></span></td>
+                    <td><?php echo (int) $s['n']; ?> záznamů<br><span class="description"><?php echo esc_html(number_format_i18n($kb, 1)); ?> kB</span></td>
+                    <td>
+                        <form method="post" style="display:inline;" onsubmit="return confirm('Vytvořit pro tuto domácnost nový kód? Její telefony se odpojí a kód bude potřeba zadat znovu.');">
+                            <?php wp_nonce_field('nakupak_admin'); ?>
+                            <input type="hidden" name="nakupak_action" value="new_code">
+                            <input type="hidden" name="household" value="<?php echo (int) $id; ?>">
+                            <?php submit_button('Nový kód', 'small', 'submit', false); ?>
+                        </form>
+                        <form method="post" style="display:inline;" onsubmit="return confirm('Smazat všechna data této domácnosti? Kód zůstane platný. Tuto akci nelze vrátit.');">
+                            <?php wp_nonce_field('nakupak_admin'); ?>
+                            <input type="hidden" name="nakupak_action" value="wipe">
+                            <input type="hidden" name="household" value="<?php echo (int) $id; ?>">
+                            <?php submit_button('Smazat data', 'small', 'submit', false); ?>
+                        </form>
+                        <form method="post" style="display:inline;" onsubmit="return confirm('Smazat celou domácnost včetně dat? Její kód přestane platit. Tuto akci nelze vrátit.');">
+                            <?php wp_nonce_field('nakupak_admin'); ?>
+                            <input type="hidden" name="nakupak_action" value="delete">
+                            <input type="hidden" name="household" value="<?php echo (int) $id; ?>">
+                            <?php submit_button('Smazat domácnost', 'delete small', 'submit', false); ?>
+                        </form>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            <?php if (!$households) : ?>
+                <tr><td colspan="4">Zatím žádná domácnost.</td></tr>
+            <?php endif; ?>
+            </tbody>
+        </table>
 
-        <h2>Správa</h2>
-        <form method="post" style="display:inline-block;margin-right:12px;" onsubmit="return confirm('Vytvořit nový kód? Telefony se starým kódem se odpojí a kód bude potřeba zadat znovu.');">
+        <h2 style="margin-top:28px;">Přidat domácnost</h2>
+        <form method="post" style="display:flex;gap:8px;align-items:center;">
             <?php wp_nonce_field('nakupak_admin'); ?>
-            <input type="hidden" name="nakupak_action" value="new_code">
-            <?php submit_button('Vytvořit nový kód', 'secondary', 'submit', false); ?>
+            <input type="hidden" name="nakupak_action" value="add">
+            <input type="text" name="name" class="regular-text" placeholder="Komu kód patří, např. Ondřej Pešek" required>
+            <?php submit_button('Vytvořit domácnost a kód', 'primary', 'submit', false); ?>
         </form>
-        <form method="post" style="display:inline-block;" onsubmit="return confirm('Opravdu smazat všechna sdílená data na webu? Tuto akci nelze vrátit.');">
-            <?php wp_nonce_field('nakupak_admin'); ?>
-            <input type="hidden" name="nakupak_action" value="wipe">
-            <?php submit_button('Smazat sdílená data', 'delete', 'submit', false); ?>
-        </form>
+        <p class="description">Kód je jako heslo – dej ho jen lidem, kteří mají sdílet data dané domácnosti. Staré smazané položky se uklízí automaticky.</p>
     </div>
     <?php
 }
@@ -376,7 +522,7 @@ add_filter('plugin_action_links_' . plugin_basename(__FILE__), function ($links)
     array_unshift(
         $links,
         '<a href="' . esc_url(nakupak_app_url()) . '" target="_blank">Otevřít aplikaci</a>',
-        '<a href="' . esc_url(admin_url('options-general.php?page=nakupak')) . '">Kód domácnosti</a>'
+        '<a href="' . esc_url(admin_url('options-general.php?page=nakupak')) . '">Domácnosti a kódy</a>'
     );
     return $links;
 });

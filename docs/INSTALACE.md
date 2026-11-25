@@ -38,7 +38,7 @@ Nákupák se dá provozovat dvěma způsoby:
 2. Nahoře klepněte na **Nahrát plugin**, vyberte ZIP a klepněte na **Instalovat**.
 3. Klepněte na **Aktivovat**.
 
-Plugin při aktivaci vytvoří databázovou tabulku, vygeneruje kód domácnosti a zaregistruje
+Plugin při aktivaci vytvoří databázovou tabulku, první domácnost s kódem a zaregistruje
 adresu `/nakupak/`.
 
 ### 3. Otevřete aplikaci
@@ -46,24 +46,31 @@ adresu `/nakupak/`.
 Aplikace běží na **`https://váš-web.cz/nakupak/`**. Odkaz *Otevřít aplikaci* najdete i v seznamu
 pluginů u Nákupáku.
 
-### 4. Kód domácnosti
+### 4. Domácnosti a kódy
 
-Ve WordPressu v **Nastavení → Nákupák** je kód domácnosti (např. `K7QM-3XWP-H9TD`). Kdo ho
-zadá v aplikaci v Nastavení, sdílí s ostatními seznamy, lednici, profily i obchody. Postup pro
-uživatele je v [uživatelské příručce](UZIVATELSKA-PRIRUCKA.md#sdílení-s-domácností).
+Ve WordPressu v **Nastavení → Nákupák** je tabulka domácností. Každá domácnost má **jméno**
+(komu kód patří), **kód** (např. `K7QM-3XWP-H9TD`) a **vlastní data**. Kdo kód zadá v aplikaci
+v Nastavení, sdílí s ostatními telefony téže domácnosti seznamy, zásoby, profily i obchody.
+Různé domácnosti svá data navzájem nevidí. Postup pro uživatele je
+v [uživatelské příručce](UZIVATELSKA-PRIRUCKA.md#sdílení-s-domácností).
 
-Na stejné stránce je také:
+- **Přidat domácnost:** napište jméno (např. „Ondřej Pešek“) a klepněte na *Vytvořit domácnost a kód*,
+- **Uložit:** změní jméno domácnosti,
+- **Nový kód:** starý kód domácnosti přestane platit a její telefony je potřeba připojit znovu,
+- **Smazat data:** smaže data domácnosti na webu a při příští synchronizaci i v jejích telefonech; kód zůstane,
+- **Smazat domácnost:** smaže domácnost, její data i kód.
 
-- velikost uložených dat,
-- **Vytvořit nový kód:** starý kód přestane platit a telefony je potřeba připojit znovu,
-- **Smazat sdílená data:** smaže data na webu a při příští synchronizaci i v připojených telefonech.
+U každé domácnosti je vidět i počet a velikost uložených záznamů.
+
+Při aktualizaci z verze 0.2.x se dosavadní data a kód automaticky převedou na první domácnost
+„Moje domácnost“, takže připojené telefony fungují dál beze změny.
 
 ### Co plugin na webu změní
 
 - Přidá adresy `/nakupak/`, `/nakupak/api`, `/nakupak/sw.js` a `/nakupak/manifest.json`.
   Zbytek webu se nezmění.
-- Vytvoří tabulku `{prefix}nakupak_records` a volby `nakupak_code`, `nakupak_rev`,
-  `nakupak_purged_rev` a `nakupak_schema`.
+- Vytvoří tabulku `{prefix}nakupak_records` a volby `nakupak_households`, `nakupak_next_household`,
+  `nakupak_rev`, `nakupak_purged_rev` a `nakupak_schema`.
 - Do vzhledu webu ani do jeho stránek nezasahuje. Stránka aplikace je skrytá před vyhledávači.
 
 ### Aktualizace
@@ -120,8 +127,8 @@ npm run mock
 
 - „Telefon 1“: `http://localhost:5182/nakupak/`
 - „Telefon 2“: `http://127.0.0.1:5182/nakupak/` (jiná adresa znamená jiné úložiště prohlížeče)
-- Kód domácnosti: `TEST-TEST-TEST`. Jiný kód lze zadat parametrem:
-  `node scripts/mock-server.mjs 5182 MUJ-KOD`.
+- Kódy domácností: `TEST-TEST-TEST` (domácnost 1) a `DRUH-A-DOMA` (domácnost 2, vlastní data).
+  Jiné kódy lze zadat parametrem, oddělené čárkou: `node scripts/mock-server.mjs 5182 KOD-JEDNA,KOD-DVA`.
 
 Testovací server drží data jen v paměti a po vypnutí je zapomene.
 

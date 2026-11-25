@@ -5,15 +5,19 @@ import { flatten, unflatten, stampOrder } from '../src/sync/flat.js';
 import { computeBase, diff, merge, sameFlat } from '../src/sync/engine.js';
 
 // ---- server (stejná pravidla jako nakupak_api v PHP) ----
+// Revize je společná pro všechny domácnosti, záznamy patří vždy jedné domácnosti.
 const server = { table: new Map(), rev: 0, purged: 0 };
-function api(since, changes) {
+function api(since, changes, household = 1) {
   if (changes.length) {
     server.rev++;
-    for (const { k, d } of changes) server.table.set(k, { d, rev: server.rev, deleted: d == null });
+    for (const { k, d } of changes) server.table.set(household + '|' + k, { household, k, d, rev: server.rev, deleted: d == null });
   }
   const full = since <= 0 || since < server.purged || since > server.rev;
   const records = [];
-  for (const [k, r] of server.table) if (full ? !r.deleted : r.rev > since) records.push({ k, d: r.deleted ? null : r.d });
+  for (const r of server.table.values()) {
+    if (r.household !== household) continue;
+    if (full ? !r.deleted : r.rev > since) records.push({ k: r.k, d: r.deleted ? null : r.d });
+  }
   return structuredClone({ rev: server.rev, full, records });
 }
 function purgeAll() {
@@ -23,10 +27,10 @@ function purgeAll() {
 // ---- telefon ----
 let n = 0;
 const id = () => 'id' + ++n;
-function phone(name) {
+function phone(name, household = 1) {
   const storeId = id();
   return {
-    name, rev: 0, base: {},
+    name, household, rev: 0, base: {},
     state: stampOrder({
       sections: [{ id: 'zelenina', name: 'Zelenina' }, { id: 'mlecne', name: 'Mléčné' }],
       locations: [{ id: 'lednice', name: 'Lednice' }],
@@ -40,7 +44,7 @@ const edit = (p, fn) => { const d = structuredClone(p.state); fn(d); p.state = s
 /** Jedno kolo synchronizace; `during` simuluje úpravu během čekání na server. */
 function sync(p, during) {
   const sent = flatten(p.state);
-  const resp = api(p.rev, diff(sent, p.base));
+  const resp = api(p.rev, diff(sent, p.base), p.household);
   if (during) edit(p, during);
   const cur = flatten(p.state);
   const { flat } = merge(sent, cur, p.base, resp);
@@ -49,7 +53,7 @@ function sync(p, during) {
   if (!sameFlat(flat, cur)) p.state = stampOrder(unflatten(flat, p.state));
 }
 function connect(p, mode) {
-  const resp = api(0, []);
+  const resp = api(0, [], p.household);
   const remote = computeBase({}, resp);
   p.base = remote; p.rev = resp.rev;
   if (mode === 'replace') p.state = stampOrder(unflatten(remote, p.state));
@@ -159,6 +163,23 @@ test('kolo bez změn nic neposílá a nemění stav', () => {
   sync(A); sync(B);
   assert.equal(server.rev, before);
   assert.deepEqual(shared(A), snap);
+});
+
+test('druhá domácnost má vlastní data a nevidí data první', () => {
+  const E = phone('E', 2);
+  edit(E, (d) => d.lists.push({ id: 'LE', name: 'Ondřejův nákup', items: [{ id: 'e1', name: 'Pivo', checked: false }] }));
+  connect(E, 'merge');
+  edit(A, (d) => d.lists[0].items.push({ id: 'a9', name: 'Chléb', sectionId: 'pecivo', checked: false }));
+  settle(A, B, E);
+  assert.equal(itemsOf(E, 'Nákup'), null, 'E nevidí seznam domácnosti 1');
+  assert.deepEqual(itemsOf(E, 'Ondřejův nákup'), ['Pivo']);
+  assert.equal(itemsOf(A, 'Ondřejův nákup'), null, 'A nevidí seznam domácnosti 2');
+  assert.ok(itemsOf(B, 'Nákup').includes('Chléb'));
+  // Stejné klíče (výchozí sekce) existují v obou domácnostech nezávisle.
+  edit(E, (d) => { d.sections[0].name = 'Zelenina Ondřej'; });
+  settle(E, A);
+  assert.equal(A.state.sections[0].name, 'Zelenina');
+  assert.equal(E.state.sections[0].name, 'Zelenina Ondřej');
 });
 
 console.log(`\n${passed} testů prošlo`);

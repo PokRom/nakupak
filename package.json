@@ -1,6 +1,6 @@
 {
   "name": "nakupak",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "description": "Chytrý nákupní seznam seřazený podle sekcí v obchodě, s lednicí, profily a sdílením přes WordPress plugin.",
   "license": "GPL-2.0-or-later",
   "private": true,
