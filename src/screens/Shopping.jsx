@@ -70,7 +70,7 @@ export default function Shopping({ listId, onBack }) {
   );
 }
 
-/** Po nákupu nabídne uložení koupených položek do lednice a odebere je ze seznamu. */
+/** Po nákupu nabídne uložení koupených položek do zásob a odebere je ze seznamu. */
 function FinishShopping({ list, onClose, onDone }) {
   const { state, mutate } = useStore();
   const bought = list.items.filter((i) => i.checked);
@@ -102,7 +102,7 @@ function FinishShopping({ list, onClose, onDone }) {
   }
 
   return (
-    <Modal title="Uložit nákup do lednice?" onClose={onClose} footer={
+    <Modal title="Uložit nákup do zásob?" onClose={onClose} footer={
       <>
         <button className="btn" onClick={() => finish(false)}>Neukládat</button>
         <button className="btn primary" onClick={() => finish(true)}>Uložit ({rows.filter((r) => r.include).length})</button>

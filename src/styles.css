@@ -155,7 +155,7 @@ h1, h2, h3 { margin: 0; }
 .fab-wrap { position: fixed; left: 0; right: 0; bottom: calc(var(--tabbar-h) + 12px + env(safe-area-inset-bottom)); display: flex; justify-content: center; pointer-events: none; z-index: 5; }
 .fab { pointer-events: auto; min-height: 56px; padding: 0 28px; font-size: 18px; border-radius: 999px; box-shadow: 0 6px 20px rgba(0,0,0,.25); }
 
-/* ---------- Lednice ---------- */
+/* ---------- Zásoby ---------- */
 .pantry-item { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 6px 6px 14px; }
 .pantry-item.soon { border-color: #e0a800; background: var(--warn-bg); }
 .pantry-item.expired { border-color: var(--danger); background: var(--danger-bg); }

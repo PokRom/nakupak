@@ -80,7 +80,7 @@ export default function ListDetail({ listId, onBack, onShop }) {
               return (
                 <button key={it.id} className="item" onClick={() => setEditing(it)}>
                   <span className="item-name">{it.name}{it.note && <span className="muted"> · {it.note}</span>}</span>
-                  {home && <span className="tag" title="Máš doma">🧊 {fmtQty(home.quantity, home.unit) || 'doma'}</span>}
+                  {home && <span className="tag" title="Máš doma">🏠 {fmtQty(home.quantity, home.unit) || 'doma'}</span>}
                   <span className="item-qty">{fmtQty(it.quantity, it.unit)}</span>
                 </button>
               );

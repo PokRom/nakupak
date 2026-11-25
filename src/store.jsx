@@ -211,7 +211,7 @@ export function addItemToList(d, listId, item) {
   remember(d, item.name, item.sectionId);
 }
 
-/** Najde zásobu v lednici odpovídající názvu položky. */
+/** Najde zásobu doma odpovídající názvu položky. */
 export function findInPantry(state, name) {
   const key = normalizeName(name);
   if (!key) return null;
@@ -283,7 +283,7 @@ export function checkMinimum(d, pantryItem) {
     quantity: pantryItem.minQuantity - (pantryItem.quantity ?? 0),
     unit: pantryItem.unit,
     sectionId: pantryItem.sectionId || classify(pantryItem.name, d.learned) || 'ostatni',
-    note: 'pod minimem v lednici',
+    note: 'pod minimem v zásobách',
   });
   return list.name;
 }

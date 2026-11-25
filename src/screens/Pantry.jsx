@@ -51,7 +51,7 @@ export default function Pantry({ toast }) {
 
   return (
     <div className="screen">
-      <Header title="Lednice" />
+      <Header title="Zásoby" />
       <div className="content">
         <div className="chips scroll">
           <button className={'chip' + (loc === 'vse' ? ' active' : '')} onClick={() => setLoc('vse')}>Vše · {state.pantry.length}</button>
@@ -69,7 +69,7 @@ export default function Pantry({ toast }) {
         <AddItemBar onAdd={add} placeholder="Přidat do zásob… (např. 6 ks vejce)" showPantryHint={false} />
         {state.pantry.length > 5 && <input className="input search" placeholder="🔍 Hledat v zásobách" value={query} onChange={(e) => setQuery(e.target.value)} />}
 
-        {items.length === 0 && <Empty icon="🧊">Tady uvidíš, co máš doma. Po nákupu můžeš koupené věci uložit jedním klepnutím.</Empty>}
+        {items.length === 0 && <Empty icon="🏠">Tady uvidíš, co máš doma. Po nákupu můžeš koupené věci uložit jedním klepnutím.</Empty>}
 
         {items.map((p) => {
           const dl = daysLeft(p.expiresAt);

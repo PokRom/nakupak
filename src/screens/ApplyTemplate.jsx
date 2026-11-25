@@ -4,7 +4,7 @@ import { Modal } from '../components/ui.jsx';
 
 /**
  * Vloží položky profilu do nového nebo existujícího seznamu.
- * Co je doma v lednici, je předem odškrtnuté.
+ * Co je doma v zásobách, je předem odškrtnuté.
  */
 export default function ApplyTemplate({ template, targetListId, onClose, onDone }) {
   const { state, mutate } = useStore();
@@ -57,14 +57,14 @@ export default function ApplyTemplate({ template, targetListId, onClose, onDone 
           </div>
         </label>
       )}
-      <div className="row between"><span className="muted small">Doma = podle lednice</span>
+      <div className="row between"><span className="muted small">Doma = podle zásob</span>
         <button className="link" onClick={() => setRows((r) => r.map((x) => ({ ...x, include: !r.every((y) => y.include) })))}>vše / nic</button>
       </div>
       {rows.map((r) => (
         <label key={r.id} className={'check-row' + (r.include ? '' : ' off')}>
           <input type="checkbox" checked={r.include} onChange={(e) => setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, include: e.target.checked } : x)))} />
           <span className="item-name">{r.name}</span>
-          {r.home && <span className="tag">🧊 doma {fmtQty(r.home.quantity, r.home.unit)}</span>}
+          {r.home && <span className="tag">🏠 doma {fmtQty(r.home.quantity, r.home.unit)}</span>}
           <span className="item-qty">{r.quantity != null ? fmtQty(Math.round(r.quantity * factor * 100) / 100, r.unit) : ''}</span>
         </label>
       ))}

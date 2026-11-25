@@ -21,7 +21,7 @@ export default function Templates({ openList }) {
     <div className="screen">
       <Header title="Profily" right={<button className="btn small primary" onClick={create}>＋ Nový</button>} />
       <div className="content">
-        <p className="muted">Předpřipravené seznamy, které stačí jedním klepnutím vložit do nákupu. To, co máš doma v lednici, se automaticky odškrtne.</p>
+        <p className="muted">Předpřipravené seznamy, které stačí jedním klepnutím vložit do nákupu. To, co máš doma v zásobách, se automaticky odškrtne.</p>
         {state.templates.length === 0 && <Empty icon="🧺">Žádné profily. Vytvoř nový, nebo ulož existující seznam přes ⋯ → Uložit jako profil.</Empty>}
         {state.templates.map((t) => (
           <div key={t.id} className="card tpl-card">

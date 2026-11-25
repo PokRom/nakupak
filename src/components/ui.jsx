@@ -180,7 +180,7 @@ export function AddItemBar({ onAdd, onBulk, placeholder = 'Přidat položku…',
       </form>
       {inPantry && (
         <div className="hint warn">
-          🧊 Doma máš: <b>{inPantry.name}</b> {fmtQty(inPantry.quantity, inPantry.unit)}
+          🏠 Doma máš: <b>{inPantry.name}</b> {fmtQty(inPantry.quantity, inPantry.unit)}
           {inPantry.expiresAt && <> · spotřeba za {daysLeft(inPantry.expiresAt)} dní</>}
         </div>
       )}

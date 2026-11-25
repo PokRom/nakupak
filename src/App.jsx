@@ -10,7 +10,7 @@ import Settings from './screens/Settings.jsx';
 
 const TABS = [
   { id: 'lists', label: 'Seznamy', icon: '📝' },
-  { id: 'pantry', label: 'Lednice', icon: '🧊' },
+  { id: 'pantry', label: 'Zásoby', icon: '🏠' },
   { id: 'templates', label: 'Profily', icon: '🧺' },
   { id: 'stores', label: 'Obchody', icon: '🏬' },
   { id: 'settings', label: 'Nastavení', icon: '⚙️' },

@@ -60,7 +60,7 @@ export default function Settings({ toast }) {
           <div className="card-title">⚠️ Smazat vše</div>
           {sync.connected && <p className="muted small">Smaže data jen v tomto telefonu a odpojí ho od sdílení. Sdílená data na webu zůstanou.</p>}
           <button className="btn danger" onClick={() => {
-            if (!confirm(sync.connected ? 'Smazat data v tomto telefonu a odpojit ho od sdílení?' : 'Opravdu smazat všechny seznamy, lednici, profily a obchody?')) return;
+            if (!confirm(sync.connected ? 'Smazat data v tomto telefonu a odpojit ho od sdílení?' : 'Opravdu smazat všechny seznamy, zásoby, profily a obchody?')) return;
             sync.disconnect();
             localStorage.removeItem('nakupak-state-v1');
             location.reload();
@@ -136,7 +136,7 @@ function Sharing({ toast }) {
         <div className="card-title">👪 Sdílení s domácností</div>
         <div className={'sync-status ' + sync.status}>{icon} {label}{sync.status === 'ok' && sync.lastSync ? ` · ${ago(sync.lastSync, now)}` : ''}</div>
         {sync.status === 'server' && sync.error && <p className="muted small">{sync.error}</p>}
-        <p className="muted small">Seznamy, lednice, profily i obchody se sdílí se všemi telefony, které mají stejný kód.</p>
+        <p className="muted small">Seznamy, zásoby, profily i obchody se sdílí se všemi telefony, které mají stejný kód.</p>
         <div className="code-box">{formatCode(sync.code)}</div>
         <div className="row gap wrap">
           <button className="btn" onClick={() => sync.syncNow()}>🔄 Synchronizovat</button>
@@ -153,7 +153,7 @@ function Sharing({ toast }) {
     <div className="card block">
       <div className="card-title">👪 Sdílení s domácností</div>
       <p className="muted small">
-        Zadej kód domácnosti a seznamy, lednice i profily se budou sdílet s ostatními telefony.
+        Zadej kód domácnosti a seznamy, zásoby i profily se budou sdílet s ostatními telefony.
         Kód najdeš ve WordPressu v <b>Nastavení → Nákupák</b>.
       </p>
       <form className="row gap" onSubmit={(e) => { e.preventDefault(); if (code.trim()) tryConnect(); }}>
