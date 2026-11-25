@@ -39,7 +39,12 @@ for (const [sectionId, words] of Object.entries(DICTIONARY)) {
  * Vrací null, když položku nezná.
  */
 export function classify(name, learned = {}) {
-  const key = normalizeName(name);
+  return classifyKey(normalizeName(name), learned)
+    // Anglický plurál, který slovník nezná („tomatoes“, „cherries“): zkusíme jednotné číslo.
+    ?? classifyKey(normalizeName(singular(name)), learned);
+}
+
+function classifyKey(key, learned) {
   if (!key) return null;
   if (learned[key]) return learned[key];
   if (PHRASES.has(key)) return PHRASES.get(key);
@@ -55,6 +60,16 @@ export function classify(name, learned = {}) {
   return null;
 }
 
+// Hrubé anglické jednotné číslo: berries → berry, tomatoes → tomato, apples → apple.
+function singular(text) {
+  return plain(text).split(' ').map((w) => {
+    if (w.length > 4 && w.endsWith('ies')) return w.slice(0, -3) + 'y';
+    if (w.length > 4 && /(oes|ches|shes|xes)$/.test(w)) return w.slice(0, -2);
+    if (w.length > 3 && w.endsWith('s') && !w.endsWith('ss')) return w.slice(0, -1);
+    return w;
+  }).join(' ');
+}
+
 // Rozdělí vložený text na jednotlivé položky a vytáhne množství („2 ks mléka“, „mouka 1kg“).
 export function parseBulk(text) {
   return text
@@ -64,12 +79,16 @@ export function parseBulk(text) {
     .map(parseItem);
 }
 
-const UNIT_RE = '(ks|g|kg|ml|l|bal|plech)';
+// Jednotky se ukládají česky; anglické zkratky se převedou (pcs → ks, pack → bal).
+const UNIT_RE = '(ks|kg|g|ml|l|bal|plech|pcs|pc|packs|pack)';
+const UNIT_ALIAS = { pcs: 'ks', pc: 'ks', packs: 'bal', pack: 'bal' };
+const unit = (u) => { const x = (u || 'ks').toLowerCase(); return UNIT_ALIAS[x] || x; };
+
 export function parseItem(text) {
   let m = text.match(new RegExp(`^(\\d+(?:[.,]\\d+)?)\\s*${UNIT_RE}?\\.?\\s+(.+)$`, 'i'));
-  if (m) return { name: m[3].trim(), quantity: num(m[1]), unit: (m[2] || 'ks').toLowerCase() };
+  if (m) return { name: m[3].trim(), quantity: num(m[1]), unit: unit(m[2]) };
   m = text.match(new RegExp(`^(.+?)\\s+(\\d+(?:[.,]\\d+)?)\\s*${UNIT_RE}?\\.?$`, 'i'));
-  if (m) return { name: m[1].trim(), quantity: num(m[2]), unit: (m[3] || 'ks').toLowerCase() };
+  if (m) return { name: m[1].trim(), quantity: num(m[2]), unit: unit(m[3]) };
   return { name: text.trim(), quantity: null, unit: null };
 }
 

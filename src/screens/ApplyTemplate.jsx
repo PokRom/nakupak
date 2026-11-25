@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useStore, uid, addItemToList, findInPantry, fmtQty } from '../store.jsx';
 import { Modal } from '../components/ui.jsx';
+import { t } from '../i18n.jsx';
 
 /**
  * Vloží položky profilu do nového nebo existujícího seznamu.
@@ -38,18 +39,18 @@ export default function ApplyTemplate({ template, targetListId, onClose, onDone 
   const count = rows.filter((r) => r.include).length;
   return (
     <Modal title={`${template.emoji} ${template.name}`} onClose={onClose} footer={
-      <button className="btn primary" disabled={!count} onClick={apply}>Přidat {count} položek</button>
+      <button className="btn primary" disabled={!count} onClick={apply}>{t('Přidat {n} položek', { n: count })}</button>
     }>
       {!targetListId && (
-        <label className="field">Kam
+        <label className="field">{t('Kam')}
           <select className="input" value={target} onChange={(e) => setTarget(e.target.value)}>
-            <option value="new">➕ Nový seznam „{template.name}“</option>
+            <option value="new">{t('➕ Nový seznam „{name}“', { name: template.name })}</option>
             {state.lists.map((l) => <option key={l.id} value={l.id}>📝 {l.name}</option>)}
           </select>
         </label>
       )}
       {template.servings && (
-        <label className="field">Počet porcí
+        <label className="field">{t('Počet porcí')}
           <div className="stepper inline">
             <button onClick={() => setServings(Math.max(1, (servings || 1) - 1))}>−</button>
             <span>{servings}</span>
@@ -57,14 +58,14 @@ export default function ApplyTemplate({ template, targetListId, onClose, onDone 
           </div>
         </label>
       )}
-      <div className="row between"><span className="muted small">Doma = podle zásob</span>
-        <button className="link" onClick={() => setRows((r) => r.map((x) => ({ ...x, include: !r.every((y) => y.include) })))}>vše / nic</button>
+      <div className="row between"><span className="muted small">{t('Doma = podle zásob')}</span>
+        <button className="link" onClick={() => setRows((r) => r.map((x) => ({ ...x, include: !r.every((y) => y.include) })))}>{t('vše / nic')}</button>
       </div>
       {rows.map((r) => (
         <label key={r.id} className={'check-row' + (r.include ? '' : ' off')}>
           <input type="checkbox" checked={r.include} onChange={(e) => setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, include: e.target.checked } : x)))} />
           <span className="item-name">{r.name}</span>
-          {r.home && <span className="tag">🏠 doma {fmtQty(r.home.quantity, r.home.unit)}</span>}
+          {r.home && <span className="tag">🏠 {t('doma {qty}', { qty: fmtQty(r.home.quantity, r.home.unit) })}</span>}
           <span className="item-qty">{r.quantity != null ? fmtQty(Math.round(r.quantity * factor * 100) / 100, r.unit) : ''}</span>
         </label>
       ))}

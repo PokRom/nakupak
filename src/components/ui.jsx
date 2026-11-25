@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, sectionFor, findInPantry, fmtQty, daysLeft } from '../store.jsx';
 import { UNITS } from '../data/sections.js';
 import { normalizeName, parseItem, plain } from '../data/normalize.js';
-import { ALL_WORDS } from '../data/dictionary.js';
+import { WORDS_CS, WORDS_EN } from '../data/dictionary.js';
+import { t, getLang, secName, unitLabel } from '../i18n.jsx';
 
 export function Modal({ title, onClose, children, footer }) {
   useEffect(() => {
@@ -15,7 +16,7 @@ export function Modal({ title, onClose, children, footer }) {
       <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={title}>
         <div className="modal-head">
           <h2>{title}</h2>
-          <button className="icon-btn" onClick={onClose} aria-label="Zavřít">✕</button>
+          <button className="icon-btn" onClick={onClose} aria-label={t('Zavřít')}>✕</button>
         </div>
         <div className="modal-body">{children}</div>
         {footer && <div className="modal-foot">{footer}</div>}
@@ -27,7 +28,7 @@ export function Modal({ title, onClose, children, footer }) {
 export function Header({ title, onBack, right }) {
   return (
     <header className="topbar">
-      {onBack ? <button className="icon-btn" onClick={onBack} aria-label="Zpět">‹</button> : <span className="topbar-spacer" />}
+      {onBack ? <button className="icon-btn" onClick={onBack} aria-label={t('Zpět')}>‹</button> : <span className="topbar-spacer" />}
       <h1>{title}</h1>
       <div className="topbar-right">{right}</div>
     </header>
@@ -55,7 +56,7 @@ export function SectionPicker({ value, onPick }) {
           style={{ '--c': s.color }}
           onClick={() => onPick(s.id)}
         >
-          <span>{s.icon}</span> {s.name}
+          <span>{s.icon}</span> {secName(s)}
         </button>
       ))}
     </div>
@@ -71,19 +72,19 @@ export function QtyInputs({ quantity, unit, onChange }) {
         inputMode="decimal"
         min="0"
         step="any"
-        placeholder="Množ."
+        placeholder={t('Množ.')}
         value={quantity ?? ''}
         onChange={(e) => onChange({ quantity: e.target.value === '' ? null : parseFloat(e.target.value), unit: unit || 'ks' })}
       />
       <select className="input" value={unit || 'ks'} onChange={(e) => onChange({ quantity, unit: e.target.value })}>
-        {UNITS.map((u) => <option key={u}>{u}</option>)}
+        {UNITS.map((u) => <option key={u} value={u}>{unitLabel(u)}</option>)}
       </select>
     </div>
   );
 }
 
 /** Editor položky seznamu / šablony. */
-export function ItemEditor({ item, onSave, onDelete, onClose, title = 'Upravit položku' }) {
+export function ItemEditor({ item, onSave, onDelete, onClose, title = t('Upravit položku') }) {
   const [draft, setDraft] = useState(item);
   const set = (patch) => setDraft((d) => ({ ...d, ...patch }));
   return (
@@ -92,21 +93,21 @@ export function ItemEditor({ item, onSave, onDelete, onClose, title = 'Upravit p
       onClose={onClose}
       footer={
         <>
-          {onDelete && <button className="btn danger" onClick={onDelete}>Smazat</button>}
-          <button className="btn primary" disabled={!draft.name.trim()} onClick={() => onSave({ ...draft, name: draft.name.trim() })}>Uložit</button>
+          {onDelete && <button className="btn danger" onClick={onDelete}>{t('Smazat')}</button>}
+          <button className="btn primary" disabled={!draft.name.trim()} onClick={() => onSave({ ...draft, name: draft.name.trim() })}>{t('Uložit')}</button>
         </>
       }
     >
-      <label className="field">Název
+      <label className="field">{t('Název')}
         <input className="input" value={draft.name} onChange={(e) => set({ name: e.target.value })} autoFocus />
       </label>
-      <label className="field">Množství
+      <label className="field">{t('Množství')}
         <QtyInputs quantity={draft.quantity} unit={draft.unit} onChange={set} />
       </label>
-      <label className="field">Poznámka
-        <input className="input" value={draft.note || ''} placeholder="např. bio, větší balení" onChange={(e) => set({ note: e.target.value })} />
+      <label className="field">{t('Poznámka')}
+        <input className="input" value={draft.note || ''} placeholder={t('např. bio, větší balení')} onChange={(e) => set({ note: e.target.value })} />
       </label>
-      <div className="field">Sekce v obchodě
+      <div className="field">{t('Sekce v obchodě')}
         <SectionPicker value={draft.sectionId} onPick={(sectionId) => set({ sectionId })} />
       </div>
     </Modal>
@@ -117,7 +118,7 @@ export function ItemEditor({ item, onSave, onDelete, onClose, title = 'Upravit p
  * Pole pro přidání položky s našeptávačem.
  * onAdd({name, quantity, unit, sectionId|null}) – sectionId je null, když položku neznáme.
  */
-export function AddItemBar({ onAdd, onBulk, placeholder = 'Přidat položku…', showPantryHint = true }) {
+export function AddItemBar({ onAdd, onBulk, placeholder = t('Přidat položku…'), showPantryHint = true }) {
   const { state } = useStore();
   const [text, setText] = useState('');
   const [focused, setFocused] = useState(false);
@@ -127,7 +128,8 @@ export function AddItemBar({ onAdd, onBulk, placeholder = 'Přidat položku…',
     const q = plain(text);
     if (q.length < 2) return [];
     const hist = Object.values(state.history).sort((a, b) => b.count - a.count).map((h) => h.name);
-    const pool = [...new Set([...hist, ...ALL_WORDS.map(cap)])];
+    const words = getLang() === 'en' ? WORDS_EN : WORDS_CS;
+    const pool = [...new Set([...hist, ...words.map(cap)])];
     return pool.filter((w) => plain(w).includes(q)).sort((a, b) => plain(a).indexOf(q) - plain(b).indexOf(q)).slice(0, 6);
   }, [text, state.history]);
 
@@ -172,7 +174,7 @@ export function AddItemBar({ onAdd, onBulk, placeholder = 'Přidat položku…',
         <button
           className="btn primary"
           type="button"
-          aria-label="Přidat"
+          aria-label={t('Přidat')}
           onPointerDown={(e) => e.preventDefault()}
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => submit()}
@@ -180,8 +182,8 @@ export function AddItemBar({ onAdd, onBulk, placeholder = 'Přidat položku…',
       </form>
       {inPantry && (
         <div className="hint warn">
-          🏠 Doma máš: <b>{inPantry.name}</b> {fmtQty(inPantry.quantity, inPantry.unit)}
-          {inPantry.expiresAt && <> · spotřeba za {daysLeft(inPantry.expiresAt)} dní</>}
+          🏠 {t('Doma máš:')} <b>{inPantry.name}</b> {fmtQty(inPantry.quantity, inPantry.unit)}
+          {inPantry.expiresAt && <> {t('· spotřeba za {n} dní', { n: daysLeft(inPantry.expiresAt) })}</>}
         </div>
       )}
       {focused && suggestions.length > 0 && (
@@ -198,7 +200,7 @@ export function AddItemBar({ onAdd, onBulk, placeholder = 'Přidat položku…',
 }
 
 function prefixQty(text) {
-  const m = text.match(/^(\d+(?:[.,]\d+)?\s*(?:ks|g|kg|ml|l|bal)?\.?\s+)/i);
+  const m = text.match(/^(\d+(?:[.,]\d+)?\s*(?:ks|g|kg|ml|l|bal|pcs|pc|pack)?\.?\s+)/i);
   return m ? m[1] : '';
 }
 

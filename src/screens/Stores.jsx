@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useStore, uid } from '../store.jsx';
 import { Header, Modal } from '../components/ui.jsx';
+import { t, secName } from '../i18n.jsx';
 
 export default function Stores() {
   const { state, mutate } = useStore();
@@ -9,7 +10,7 @@ export default function Stores() {
 
   function create() {
     const id = uid();
-    mutate((d) => d.stores.push({ id, name: newName.trim() || 'Obchod', sectionOrder: d.sections.map((s) => s.id), hidden: [] }));
+    mutate((d) => d.stores.push({ id, name: newName.trim() || t('Obchod'), sectionOrder: d.sections.map((s) => s.id), hidden: [] }));
     setNewName(null);
     setEditId(id);
   }
@@ -18,22 +19,22 @@ export default function Stores() {
 
   return (
     <div className="screen">
-      <Header title="Obchody" right={<button className="btn small primary" onClick={() => setNewName('')}>＋ Nový</button>} />
+      <Header title={t('Obchody')} right={<button className="btn small primary" onClick={() => setNewName('')}>{t('＋ Nový')}</button>} />
       <div className="content">
-        <p className="muted">Každému obchodu nastav pořadí sekcí tak, jak jimi procházíš od vchodu k pokladnám.</p>
+        <p className="muted">{t('Každému obchodu nastav pořadí sekcí tak, jak jimi procházíš od vchodu k pokladnám.')}</p>
         {state.stores.map((s) => (
           <button key={s.id} className="card list-card" onClick={() => setEditId(s.id)}>
             <div>
               <div className="card-title">🏬 {s.name}</div>
-              <div className="muted small">{s.sectionOrder.length - s.hidden.length} sekcí</div>
+              <div className="muted small">{t('{n} sekcí', { n: s.sectionOrder.length - s.hidden.length })}</div>
             </div>
             <span className="muted">›</span>
           </button>
         ))}
       </div>
       {newName != null && (
-        <Modal title="Nový obchod" onClose={() => setNewName(null)} footer={<button className="btn primary" onClick={create}>Vytvořit</button>}>
-          <input className="input" autoFocus placeholder="např. Albert Chodov" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && create()} />
+        <Modal title={t('Nový obchod')} onClose={() => setNewName(null)} footer={<button className="btn primary" onClick={create}>{t('Vytvořit')}</button>}>
+          <input className="input" autoFocus placeholder={t('např. Albert Chodov')} value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && create()} />
         </Modal>
       )}
     </div>
@@ -48,7 +49,7 @@ function StoreEditor({ id, onBack }) {
   const [renaming, setRenaming] = useState(null);
   if (!store) return null;
 
-  const byId = Object.fromEntries(state.sections.map((s) => [s.id, s]));
+  const byId = Object.fromEntries(state.sections.map((s) => [s.id, { ...s, name: secName(s) }]));
   const order = [...store.sectionOrder.filter((sid) => byId[sid]), ...state.sections.map((s) => s.id).filter((sid) => !store.sectionOrder.includes(sid))];
   const upd = (fn) => mutate((d) => fn(d.stores.find((s) => s.id === id), d));
 
@@ -59,10 +60,10 @@ function StoreEditor({ id, onBack }) {
 
   return (
     <div className="screen">
-      <Header title="Rozložení obchodu" onBack={onBack} />
+      <Header title={t('Rozložení obchodu')} onBack={onBack} />
       <div className="content">
         <input className="input" value={store.name} onChange={(e) => upd((s) => { s.name = e.target.value; })} />
-        <p className="muted small">🚪 Vchod nahoře, 🧾 pokladny dole. Přesouvej šipkami nebo přetažením (podrž ≡). Oko skryje sekci, kterou obchod nemá.</p>
+        <p className="muted small">{t('🚪 Vchod nahoře, 🧾 pokladny dole. Přesouvej šipkami nebo přetažením (podrž ≡). Oko skryje sekci, kterou obchod nemá.')}</p>
         <div className="order-list">
           {order.map((sid, i) => {
             const s = byId[sid];
@@ -73,27 +74,27 @@ function StoreEditor({ id, onBack }) {
                 <span className="handle" draggable onDragStart={() => setDrag(i)} onDragEnd={() => setDrag(null)}
                   onTouchStart={() => setDrag(i)}
                   onTouchMove={(e) => {
-                    const t = e.touches[0];
-                    const el = document.elementFromPoint(t.clientX, t.clientY)?.closest('[data-idx]');
+                    const touch = e.touches[0];
+                    const el = document.elementFromPoint(touch.clientX, touch.clientY)?.closest('[data-idx]');
                     const to = el ? +el.dataset.idx : null;
                     if (to != null && drag != null && to !== drag) { move(drag, to); setDrag(to); }
                   }}
                   onTouchEnd={() => setDrag(null)} data-idx={i}>≡</span>
                 <span className="order-num" data-idx={i}>{i + 1}</span>
                 <button className="order-name" data-idx={i} onClick={() => setRenaming({ id: sid, name: s.name, icon: s.icon })}>{s.icon} {s.name}</button>
-                <button className="icon-btn" onClick={() => move(i, i - 1)} aria-label="Nahoru">▲</button>
-                <button className="icon-btn" onClick={() => move(i, i + 1)} aria-label="Dolů">▼</button>
-                <button className="icon-btn" onClick={() => upd((st) => { st.sectionOrder = order; st.hidden = hidden ? st.hidden.filter((x) => x !== sid) : [...st.hidden, sid]; })} aria-label="Skrýt">{hidden ? '🙈' : '👁️'}</button>
+                <button className="icon-btn" onClick={() => move(i, i - 1)} aria-label={t('Nahoru')}>▲</button>
+                <button className="icon-btn" onClick={() => move(i, i + 1)} aria-label={t('Dolů')}>▼</button>
+                <button className="icon-btn" onClick={() => upd((st) => { st.sectionOrder = order; st.hidden = hidden ? st.hidden.filter((x) => x !== sid) : [...st.hidden, sid]; })} aria-label={t('Skrýt')}>{hidden ? '🙈' : '👁️'}</button>
               </div>
             );
           })}
         </div>
         <div className="row gap wrap">
-          <button className="btn ghost" onClick={() => setAddSection({ name: '', icon: '🛍️' })}>＋ Vlastní sekce</button>
-          <button className="btn ghost" onClick={() => upd((s, d) => { s.sectionOrder = d.sections.map((x) => x.id); s.hidden = []; })}>↺ Výchozí pořadí</button>
+          <button className="btn ghost" onClick={() => setAddSection({ name: '', icon: '🛍️' })}>{t('＋ Vlastní sekce')}</button>
+          <button className="btn ghost" onClick={() => upd((s, d) => { s.sectionOrder = d.sections.map((x) => x.id); s.hidden = []; })}>{t('↺ Výchozí pořadí')}</button>
           {state.stores.length > 1 && (
             <button className="btn ghost danger-text" onClick={() => {
-              if (!confirm(`Smazat obchod „${store.name}“?`)) return;
+              if (!confirm(t('Smazat obchod „{name}“?', { name: store.name }))) return;
               mutate((d) => {
                 d.stores = d.stores.filter((s) => s.id !== id);
                 const fallback = d.stores[0].id;
@@ -101,13 +102,13 @@ function StoreEditor({ id, onBack }) {
                 if (d.activeStoreId === id) d.activeStoreId = fallback;
               });
               onBack();
-            }}>🗑️ Smazat obchod</button>
+            }}>{t('🗑️ Smazat obchod')}</button>
           )}
         </div>
       </div>
 
       {addSection && (
-        <Modal title="Nová sekce" onClose={() => setAddSection(null)} footer={
+        <Modal title={t('Nová sekce')} onClose={() => setAddSection(null)} footer={
           <button className="btn primary" disabled={!addSection.name.trim()} onClick={() => {
             const sid = 'vlastni-' + uid();
             mutate((d) => {
@@ -115,24 +116,24 @@ function StoreEditor({ id, onBack }) {
               d.stores.forEach((s) => { const p = s.sectionOrder.indexOf('pokladna'); if (p < 0) s.sectionOrder.push(sid); else s.sectionOrder.splice(p, 0, sid); });
             });
             setAddSection(null);
-          }}>Přidat</button>
+          }}>{t('Přidat')}</button>
         }>
           <div className="row gap">
             <input className="input emoji-input" value={addSection.icon} maxLength={4} onChange={(e) => setAddSection({ ...addSection, icon: e.target.value })} />
-            <input className="input" autoFocus placeholder="např. Bio a zdravá výživa" value={addSection.name} onChange={(e) => setAddSection({ ...addSection, name: e.target.value })} />
+            <input className="input" autoFocus placeholder={t('např. Bio a zdravá výživa')} value={addSection.name} onChange={(e) => setAddSection({ ...addSection, name: e.target.value })} />
           </div>
         </Modal>
       )}
 
       {renaming && (
-        <Modal title="Upravit sekci" onClose={() => setRenaming(null)} footer={
-          <button className="btn primary" onClick={() => { mutate((d) => { const s = d.sections.find((x) => x.id === renaming.id); s.name = renaming.name.trim() || s.name; s.icon = renaming.icon || s.icon; }); setRenaming(null); }}>Uložit</button>
+        <Modal title={t('Upravit sekci')} onClose={() => setRenaming(null)} footer={
+          <button className="btn primary" onClick={() => { mutate((d) => { const s = d.sections.find((x) => x.id === renaming.id); s.name = renaming.name.trim() || s.name; s.icon = renaming.icon || s.icon; }); setRenaming(null); }}>{t('Uložit')}</button>
         }>
           <div className="row gap">
             <input className="input emoji-input" value={renaming.icon} maxLength={4} onChange={(e) => setRenaming({ ...renaming, icon: e.target.value })} />
             <input className="input" value={renaming.name} onChange={(e) => setRenaming({ ...renaming, name: e.target.value })} />
           </div>
-          <p className="muted small">Název sekce se změní ve všech obchodech.</p>
+          <p className="muted small">{t('Název sekce se změní ve všech obchodech.')}</p>
         </Modal>
       )}
     </div>

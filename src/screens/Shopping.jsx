@@ -3,6 +3,7 @@ import { useStore, uid, groupBySection, fmtQty } from '../store.jsx';
 import { Header, Modal, QtyInputs } from '../components/ui.jsx';
 import { SECTION_TO_LOCATION } from '../data/sections.js';
 import { normalizeName } from '../data/normalize.js';
+import { t, locName } from '../i18n.jsx';
 
 export default function Shopping({ listId, onBack }) {
   const { state, mutate } = useStore();
@@ -38,7 +39,7 @@ export default function Shopping({ listId, onBack }) {
   return (
     <div className="screen shopping">
       <Header title={store ? store.name : list.name} onBack={onBack}
-        right={<button className="btn small primary" onClick={() => setFinishing(true)} disabled={!done}>Dokončit</button>} />
+        right={<button className="btn small primary" onClick={() => setFinishing(true)} disabled={!done}>{t('Dokončit')}</button>} />
       <div className="progress"><div style={{ width: total ? `${(done / total) * 100}%` : 0 }} /><span>{done} / {total}</span></div>
       <div className="content">
         {groups.map(({ section, items }) => {
@@ -63,7 +64,7 @@ export default function Shopping({ listId, onBack }) {
             </div>
           );
         })}
-        {done === total && total > 0 && <div className="all-done">🎉 Máš všechno! Klepni na <b>Dokončit</b>.</div>}
+        {done === total && total > 0 && <div className="all-done">{t('🎉 Máš všechno! Klepni na')} <b>{t('Dokončit')}</b>.</div>}
       </div>
       {finishing && <FinishShopping list={list} onClose={() => setFinishing(false)} onDone={onBack} />}
     </div>
@@ -102,13 +103,13 @@ function FinishShopping({ list, onClose, onDone }) {
   }
 
   return (
-    <Modal title="Uložit nákup do zásob?" onClose={onClose} footer={
+    <Modal title={t('Uložit nákup do zásob?')} onClose={onClose} footer={
       <>
-        <button className="btn" onClick={() => finish(false)}>Neukládat</button>
-        <button className="btn primary" onClick={() => finish(true)}>Uložit ({rows.filter((r) => r.include).length})</button>
+        <button className="btn" onClick={() => finish(false)}>{t('Neukládat')}</button>
+        <button className="btn primary" onClick={() => finish(true)}>{t('Uložit ({n})', { n: rows.filter((r) => r.include).length })}</button>
       </>
     }>
-      <p className="muted">Zaškrtnuté položky se přidají do zásob. Koupené položky se ze seznamu odeberou.</p>
+      <p className="muted">{t('Zaškrtnuté položky se přidají do zásob. Koupené položky se ze seznamu odeberou.')}</p>
       {rows.map((r) => (
         <div key={r.id} className={'finish-row' + (r.include ? '' : ' off')}>
           <label className="row gap">
@@ -119,9 +120,9 @@ function FinishShopping({ list, onClose, onDone }) {
             <div className="row gap wrap">
               <QtyInputs quantity={r.quantity} unit={r.unit} onChange={(p) => setRow(r.id, p)} />
               <select className="input" value={r.locationId} onChange={(e) => setRow(r.id, { locationId: e.target.value })}>
-                {state.locations.map((l) => <option key={l.id} value={l.id}>{l.icon} {l.name}</option>)}
+                {state.locations.map((l) => <option key={l.id} value={l.id}>{l.icon} {locName(l)}</option>)}
               </select>
-              <input className="input" type="date" title="Spotřebujte do" value={r.expiresAt} onChange={(e) => setRow(r.id, { expiresAt: e.target.value })} />
+              <input className="input" type="date" title={t('Spotřebujte do')} value={r.expiresAt} onChange={(e) => setRow(r.id, { expiresAt: e.target.value })} />
             </div>
           )}
         </div>

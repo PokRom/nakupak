@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useStore, uid, daysLeft, fmtQty, fmtDate, checkMinimum, addItemToList, sectionFor } from '../store.jsx';
 import { Header, Modal, Empty, QtyInputs, AddItemBar, SectionPicker } from '../components/ui.jsx';
 import { SECTION_TO_LOCATION } from '../data/sections.js';
+import { t, locName, locale } from '../i18n.jsx';
 
 export default function Pantry({ toast }) {
   const { state, mutate } = useStore();
@@ -13,7 +14,7 @@ export default function Pantry({ toast }) {
   const items = state.pantry
     .filter((p) => loc === 'vse' || p.locationId === loc)
     .filter((p) => !query || p.name.toLowerCase().includes(query.toLowerCase()))
-    .sort((a, b) => (daysLeft(a.expiresAt) ?? 9999) - (daysLeft(b.expiresAt) ?? 9999) || a.name.localeCompare(b.name, 'cs'));
+    .sort((a, b) => (daysLeft(a.expiresAt) ?? 9999) - (daysLeft(b.expiresAt) ?? 9999) || a.name.localeCompare(b.name, locale()));
   const expiring = state.pantry.filter((p) => { const d = daysLeft(p.expiresAt); return d != null && d <= 2; });
 
   function add(item) {
@@ -39,37 +40,37 @@ export default function Pantry({ toast }) {
       // Položky s hlídaným minimem necháváme i na nule, aby se dál sledovaly.
       if (qty === 0 && p.minQuantity == null) d.pantry = d.pantry.filter((x) => x.id !== id);
     });
-    if (belowMin && delta < 0) toast(`${cur.name}: pod minimem – je na seznamu`);
+    if (belowMin && delta < 0) toast(t('{name}: pod minimem – je na seznamu', { name: cur.name }));
     else if (qty === 0) setGone(cur);
   }
 
   function addToList(item, listId) {
     mutate((d) => addItemToList(d, listId, { name: item.name, quantity: null, unit: null, sectionId: item.sectionId || sectionFor(d, item.name) || 'ostatni' }));
-    toast(`„${item.name}“ přidáno na seznam`);
+    toast(t('„{name}“ přidáno na seznam', { name: item.name }));
     setGone(null);
   }
 
   return (
     <div className="screen">
-      <Header title="Zásoby" />
+      <Header title={t('Zásoby')} />
       <div className="content">
         <div className="chips scroll">
-          <button className={'chip' + (loc === 'vse' ? ' active' : '')} onClick={() => setLoc('vse')}>Vše · {state.pantry.length}</button>
+          <button className={'chip' + (loc === 'vse' ? ' active' : '')} onClick={() => setLoc('vse')}>{t('Vše · {n}', { n: state.pantry.length })}</button>
           {state.locations.map((l) => (
             <button key={l.id} className={'chip' + (loc === l.id ? ' active' : '')} onClick={() => setLoc(l.id)}>
-              {l.icon} {l.name} · {state.pantry.filter((p) => p.locationId === l.id).length}
+              {l.icon} {locName(l)} · {state.pantry.filter((p) => p.locationId === l.id).length}
             </button>
           ))}
         </div>
 
         {expiring.length > 0 && (
-          <div className="hint danger">⏰ Brzy projde: {expiring.map((p) => p.name).join(', ')}</div>
+          <div className="hint danger">{t('⏰ Brzy projde: {names}', { names: expiring.map((p) => p.name).join(', ') })}</div>
         )}
 
-        <AddItemBar onAdd={add} placeholder="Přidat do zásob… (např. 6 ks vejce)" showPantryHint={false} />
-        {state.pantry.length > 5 && <input className="input search" placeholder="🔍 Hledat v zásobách" value={query} onChange={(e) => setQuery(e.target.value)} />}
+        <AddItemBar onAdd={add} placeholder={t('Přidat do zásob… (např. 6 ks vejce)')} showPantryHint={false} />
+        {state.pantry.length > 5 && <input className="input search" placeholder={t('🔍 Hledat v zásobách')} value={query} onChange={(e) => setQuery(e.target.value)} />}
 
-        {items.length === 0 && <Empty icon="🏠">Tady uvidíš, co máš doma. Po nákupu můžeš koupené věci uložit jedním klepnutím.</Empty>}
+        {items.length === 0 && <Empty icon="🏠">{t('Tady uvidíš, co máš doma. Po nákupu můžeš koupené věci uložit jedním klepnutím.')}</Empty>}
 
         {items.map((p) => {
           const dl = daysLeft(p.expiresAt);
@@ -82,16 +83,16 @@ export default function Pantry({ toast }) {
                 <div className="item-name">{p.name}</div>
                 <div className="muted small">
                   {[
-                    loc === 'vse' && location && `${location.icon} ${location.name}`,
-                    dl != null && (dl < 0 ? `prošlo ${fmtDate(p.expiresAt)}` : dl === 0 ? 'projde dnes' : `do ${fmtDate(p.expiresAt)} (${dl} d)`),
+                    loc === 'vse' && location && `${location.icon} ${locName(location)}`,
+                    dl != null && (dl < 0 ? t('prošlo {date}', { date: fmtDate(p.expiresAt) }) : dl === 0 ? t('projde dnes') : t('do {date} ({n} d)', { date: fmtDate(p.expiresAt), n: dl })),
                   ].filter(Boolean).join(' · ')}
-                  {low && <span className="low">{loc === 'vse' || dl != null ? ' · ' : ''}pod minimem</span>}
+                  {low && <span className="low">{loc === 'vse' || dl != null ? ' · ' : ''}{t('pod minimem')}</span>}
                 </div>
               </button>
               <div className="stepper">
-                <button onClick={() => change(p.id, -1)} aria-label="Ubrat">−</button>
+                <button onClick={() => change(p.id, -1)} aria-label={t('Ubrat')}>−</button>
                 <span>{fmtQty(p.quantity, p.unit)}</span>
-                <button onClick={() => change(p.id, +1)} aria-label="Přidat">＋</button>
+                <button onClick={() => change(p.id, +1)} aria-label={t('Přidat')}>＋</button>
               </div>
             </div>
           );
@@ -101,12 +102,12 @@ export default function Pantry({ toast }) {
       {editing && <PantryEditor item={editing} onClose={() => setEditing(null)} onConsumed={(p) => { setEditing(null); setGone(p); }} />}
 
       {gone && (
-        <Modal title={`${gone.name} došlo`} onClose={() => setGone(null)}>
-          <p>Přidat na nákupní seznam?</p>
+        <Modal title={t('{name} došlo', { name: gone.name })} onClose={() => setGone(null)}>
+          <p>{t('Přidat na nákupní seznam?')}</p>
           <div className="menu">
             {state.lists.map((l) => <button key={l.id} onClick={() => addToList(gone, l.id)}>📝 {l.name}</button>)}
-            {state.lists.length === 0 && <p className="muted">Nemáš žádný seznam.</p>}
-            <button onClick={() => setGone(null)}>Ne, díky</button>
+            {state.lists.length === 0 && <p className="muted">{t('Nemáš žádný seznam.')}</p>}
+            <button onClick={() => setGone(null)}>{t('Ne, díky')}</button>
           </div>
         </Modal>
       )}
@@ -133,27 +134,27 @@ function PantryEditor({ item, onClose, onConsumed }) {
   }
 
   return (
-    <Modal title="Zásoba" onClose={onClose} footer={
+    <Modal title={t('Zásoba')} onClose={onClose} footer={
       <>
-        <button className="btn" onClick={() => remove('eaten')}>✅ Dojedeno</button>
-        <button className="btn danger" onClick={() => remove('trash')}>🗑️ Vyhozeno</button>
-        <button className="btn primary" onClick={save}>Uložit</button>
+        <button className="btn" onClick={() => remove('eaten')}>{t('✅ Dojedeno')}</button>
+        <button className="btn danger" onClick={() => remove('trash')}>{t('🗑️ Vyhozeno')}</button>
+        <button className="btn primary" onClick={save}>{t('Uložit')}</button>
       </>
     }>
-      <label className="field">Název<input className="input" value={d.name} onChange={(e) => set({ name: e.target.value })} /></label>
-      <label className="field">Množství<QtyInputs quantity={d.quantity} unit={d.unit} onChange={set} /></label>
-      <label className="field">Uloženo v
+      <label className="field">{t('Název')}<input className="input" value={d.name} onChange={(e) => set({ name: e.target.value })} /></label>
+      <label className="field">{t('Množství')}<QtyInputs quantity={d.quantity} unit={d.unit} onChange={set} /></label>
+      <label className="field">{t('Uloženo v')}
         <select className="input" value={d.locationId} onChange={(e) => set({ locationId: e.target.value })}>
-          {state.locations.map((l) => <option key={l.id} value={l.id}>{l.icon} {l.name}</option>)}
+          {state.locations.map((l) => <option key={l.id} value={l.id}>{l.icon} {locName(l)}</option>)}
         </select>
       </label>
-      <label className="field">Spotřebujte do<input className="input" type="date" value={d.expiresAt} onChange={(e) => set({ expiresAt: e.target.value })} /></label>
-      <label className="field">Minimální zásoba <span className="muted small">(při poklesu se doplní na seznam)</span>
-        <input className="input" type="number" inputMode="decimal" min="0" placeholder="bez minima" value={d.minQuantity ?? ''}
+      <label className="field">{t('Spotřebujte do')}<input className="input" type="date" value={d.expiresAt} onChange={(e) => set({ expiresAt: e.target.value })} /></label>
+      <label className="field">{t('Minimální zásoba')} <span className="muted small">{t('(při poklesu se doplní na seznam)')}</span>
+        <input className="input" type="number" inputMode="decimal" min="0" placeholder={t('bez minima')} value={d.minQuantity ?? ''}
           onChange={(e) => set({ minQuantity: e.target.value === '' ? null : parseFloat(e.target.value) })} />
       </label>
       <details className="field">
-        <summary>Sekce v obchodě</summary>
+        <summary>{t('Sekce v obchodě')}</summary>
         <SectionPicker value={d.sectionId} onPick={(sectionId) => set({ sectionId })} />
       </details>
     </Modal>

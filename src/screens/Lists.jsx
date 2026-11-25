@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useStore, uid } from '../store.jsx';
 import { Header, Modal, Empty } from '../components/ui.jsx';
 import ApplyTemplate from './ApplyTemplate.jsx';
+import { t } from '../i18n.jsx';
 
 export default function Lists({ open }) {
   const { state, mutate } = useStore();
@@ -11,7 +12,7 @@ export default function Lists({ open }) {
 
   function create() {
     const id = uid();
-    mutate((d) => d.lists.push({ id, name: name.trim() || 'Nákup', storeId: d.activeStoreId, createdAt: Date.now(), items: [] }));
+    mutate((d) => d.lists.push({ id, name: name.trim() || t('Nákup'), storeId: d.activeStoreId, createdAt: Date.now(), items: [] }));
     setCreating(false);
     setName('');
     open(id);
@@ -19,9 +20,9 @@ export default function Lists({ open }) {
 
   return (
     <div className="screen">
-      <Header title="Seznamy" right={<button className="btn small primary" onClick={() => setCreating(true)}>＋ Nový</button>} />
+      <Header title={t('Seznamy')} right={<button className="btn small primary" onClick={() => setCreating(true)}>{t('＋ Nový')}</button>} />
       <div className="content">
-        {state.lists.length === 0 && <Empty icon="📝">Zatím žádný seznam. Vytvoř nový nebo použij profil.</Empty>}
+        {state.lists.length === 0 && <Empty icon="📝">{t('Zatím žádný seznam. Vytvoř nový nebo použij profil.')}</Empty>}
         {state.lists.map((l) => {
           const left = l.items.filter((i) => !i.checked).length;
           const store = state.stores.find((s) => s.id === l.storeId);
@@ -31,14 +32,14 @@ export default function Lists({ open }) {
                 <div className="card-title">{l.name}</div>
                 <div className="muted">{store ? '🏬 ' + store.name : ''}</div>
               </div>
-              <div className="badge">{left ? `${left} zbývá` : l.items.length ? 'hotovo ✓' : 'prázdný'}</div>
+              <div className="badge">{left ? t('{n} zbývá', { n: left }) : l.items.length ? t('hotovo ✓') : t('prázdný')}</div>
             </button>
           );
         })}
 
         {state.templates.length > 0 && (
           <>
-            <h3 className="section-label">Rychle z profilu</h3>
+            <h3 className="section-label">{t('Rychle z profilu')}</h3>
             <div className="chips">
               {state.templates.map((t) => (
                 <button key={t.id} className="chip" onClick={() => setFromTemplate(t)}>
@@ -51,8 +52,8 @@ export default function Lists({ open }) {
       </div>
 
       {creating && (
-        <Modal title="Nový seznam" onClose={() => setCreating(false)} footer={<button className="btn primary" onClick={create}>Vytvořit</button>}>
-          <input className="input" autoFocus placeholder="Název (např. Velký nákup)" value={name}
+        <Modal title={t('Nový seznam')} onClose={() => setCreating(false)} footer={<button className="btn primary" onClick={create}>{t('Vytvořit')}</button>}>
+          <input className="input" autoFocus placeholder={t('Název (např. Velký nákup)')} value={name}
             onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && create()} />
         </Modal>
       )}

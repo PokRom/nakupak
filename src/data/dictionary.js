@@ -62,12 +62,83 @@ const RAW = {
   pokladna: `baterie, tužkové baterie, žvýkačka, mentolky, dárková karta, zapalovač, tic tac, kinder vajíčko, taška`,
 };
 
-export const DICTIONARY = Object.fromEntries(
-  Object.entries(RAW).map(([sectionId, list]) => [
+// Anglické názvy – aplikace je zařadí do stejných sekcí, ať se píše česky, nebo anglicky.
+const RAW_EN = {
+  zelenina: `onion, onions, red onion, shallot, shallots, garlic, leek, spring onion, spring onions, potato, potatoes,
+    sweet potato, sweet potatoes, carrot, carrots, parsnip, celery, celeriac, radish, radishes, beetroot, kohlrabi,
+    cabbage, red cabbage, kale, cauliflower, broccoli, brussels sprouts, tomato, tomatoes, cherry tomatoes, cucumber,
+    bell pepper, peppers, chilli, chili, zucchini, courgette, eggplant, aubergine, pumpkin, squash, lettuce,
+    iceberg lettuce, rocket, arugula, spinach, mushroom, mushrooms, avocado, avocados, ginger, herbs, parsley, chives,
+    dill, basil, mint, coriander, cilantro, rosemary, thyme, lemon, lemons, lime, limes, orange, oranges, tangerines,
+    clementines, grapefruit, apple, apples, pear, pears, banana, bananas, grapes, strawberries, blueberries,
+    raspberries, blackberries, currants, cherries, apricots, peaches, nectarines, plums, kiwi, pineapple, mango, melon,
+    watermelon, pomegranate, figs, dates, fruit, vegetables, veg, green beans, salad`,
+  pecivo: `bread, sliced bread, wholemeal bread, rolls, bread rolls, roll, bun, buns, baguette, croissant, croissants,
+    doughnut, doughnuts, donut, toast, tortillas, wraps, pitta, pita, bagel, bagels, crispbread, breadcrumbs, pastry,
+    muffins, cake`,
+  maso: `meat, chicken, chicken breast, chicken thighs, chicken wings, turkey, turkey breast, pork, pork chops,
+    pork shoulder, pork belly, ribs, beef, steak, mince, minced meat, ground beef, veal, lamb, duck, rabbit, liver, ham,
+    salami, sausage, sausages, hot dogs, frankfurters, bacon, smoked meat, pate, prosciutto, chorizo, cold cuts, deli`,
+  ryby: `fish, salmon, trout, carp, cod, fresh tuna, fish fillet, shrimp, prawns, mussels, squid, octopus, herring,
+    mackerel, smoked mackerel, seafood, crab sticks`,
+  mlecne: `milk, semi-skimmed milk, skimmed milk, whole milk, lactose-free milk, butter, cream, single cream,
+    double cream, whipping cream, cooking cream, sour cream, yogurt, yoghurt, greek yogurt, kefir, buttermilk, quark,
+    cottage cheese, cream cheese, pudding, eggs, egg, margarine, skyr, mascarpone, ricotta`,
+  syry: `cheese, cheddar, gouda, edam, emmental, mozzarella, parmesan, blue cheese, camembert, brie, feta,
+    processed cheese, cheese slices, grated cheese, halloumi, gorgonzola`,
+  trvanlive: `pasta, spaghetti, penne, fusilli, macaroni, lasagne sheets, noodles, rice, basmati rice, jasmine rice,
+    couscous, bulgur, quinoa, buckwheat, millet, barley, lentils, beans, chickpeas, flour, plain flour, sugar,
+    semolina, icing sugar, brown sugar, vanilla sugar, baking powder, baking soda, yeast, oats, porridge oats, oatmeal,
+    muesli, granola, cornflakes, cereal, oil, olive oil, sunflower oil, vinegar, honey, jam, peanut butter, nutella,
+    dried fruit, raisins, nuts, walnuts, almonds, cashews, flaxseed, chia seeds, desiccated coconut, instant soup,
+    stock cubes, broth, salt, gelatine, cornflour, cornstarch, cocoa`,
+  konzervy: `tinned tuna, tuna, sardines, tinned corn, sweetcorn, baked beans, tinned tomatoes, canned tomatoes,
+    chopped tomatoes, tomato paste, tomato puree, passata, ketchup, mustard, mayonnaise, mayo, tartar sauce, dressing,
+    sauce, soy sauce, pesto, pickles, gherkins, olives, capers, tinned fruit, ready meal, sauerkraut,
+    worcestershire sauce, sriracha, tabasco, sweet and sour sauce, curry paste`,
+  koreni: `spices, black pepper, paprika, cumin, caraway, marjoram, oregano, bay leaves, allspice, cinnamon, cloves,
+    nutmeg, curry powder, turmeric, chilli flakes, bbq seasoning, seasoning, garlic powder, star anise, vanilla,
+    ground ginger, herbes de provence, mixed herbs`,
+  sladkosti: `chocolate, sweets, candy, biscuits, cookies, wafers, sponge fingers, gingerbread, cereal bar, granola bar,
+    gummy bears, jelly sweets, lollipops, crisps, chips, pretzels, crackers, popcorn, peanuts, pistachios, snacks,
+    dessert, chewing gum`,
+  kava: `coffee, coffee beans, ground coffee, instant coffee, coffee pods, coffee capsules, tea, tea bags, black tea,
+    green tea, fruit tea, herbal tea, chamomile tea, hot chocolate`,
+  napoje: `water, mineral water, sparkling water, still water, juice, orange juice, apple juice, lemonade, cola, coke,
+    coca cola, pepsi, sprite, fanta, squash drink, cordial, iced tea, energy drink, tonic water, tonic, smoothie,
+    plant milk, oat milk, soy milk, almond milk`,
+  alkohol: `beer, beers, alcohol-free beer, lager, ale, wine, white wine, red wine, rose wine, prosecco, champagne,
+    sparkling wine, rum, vodka, whisky, whiskey, gin, liqueur, cider, aperol`,
+  mrazene: `frozen vegetables, frozen peas, peas, frozen fruit, ice cream, ice lollies, ice lolly, french fries, fries,
+    oven chips, pizza, frozen pizza, fish fingers, frozen spinach, frozen dumplings, pierogi, ice, ice cubes,
+    croquettes, frozen prawns`,
+  drogerie: `toilet paper, toilet roll, tissues, soap, liquid soap, hand soap, shower gel, body wash, shampoo,
+    conditioner, toothpaste, toothbrush, mouthwash, dental floss, deodorant, razors, shaving foam, body lotion,
+    hand cream, sun cream, sunscreen, cotton buds, cotton pads, pads, tampons, nappies, diapers, wet wipes, baby wipes,
+    comb, hairspray, hair gel, plasters, band aids, painkillers, ibuprofen, paracetamol`,
+  domacnost: `laundry detergent, washing powder, washing liquid, laundry pods, fabric softener, washing up liquid,
+    dish soap, dishwasher tablets, dishwasher salt, rinse aid, bleach, cleaner, glass cleaner, sponges, sponge,
+    cloths, kitchen roll, paper towels, kitchen towels, tin foil, aluminium foil, cling film, baking paper, bin bags,
+    trash bags, freezer bags, light bulb, light bulbs, candles, matches, napkins, paper cups, paper plates, pet food,
+    cat food, dog food, cat litter, charcoal, firelighters`,
+  pokladna: `batteries, aa batteries, mints, gift card, lighter, tic tac, kinder egg, carrier bag, shopping bag`,
+};
+
+const split = (raw) => Object.fromEntries(
+  Object.entries(raw).map(([sectionId, list]) => [
     sectionId,
     list.split(',').map((s) => s.trim().replace(/\s+/g, ' ')).filter(Boolean),
   ])
 );
+const CS = split(RAW);
+const EN = split(RAW_EN);
 
-// Plochý seznam pro našeptávač.
-export const ALL_WORDS = [...new Set(Object.values(DICTIONARY).flat())];
+/** Sekce → všechny známé názvy (česky i anglicky); čeština má přednost při shodě. */
+export const DICTIONARY = Object.fromEntries(
+  Object.keys(CS).map((id) => [id, [...CS[id], ...(EN[id] || [])]])
+);
+
+// Ploché seznamy pro našeptávač podle jazyka.
+export const WORDS_CS = [...new Set(Object.values(CS).flat())];
+export const WORDS_EN = [...new Set(Object.values(EN).flat())];
+export const ALL_WORDS = [...new Set([...WORDS_CS, ...WORDS_EN])];

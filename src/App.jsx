@@ -7,6 +7,7 @@ import Pantry from './screens/Pantry.jsx';
 import Templates from './screens/Templates.jsx';
 import Stores from './screens/Stores.jsx';
 import Settings from './screens/Settings.jsx';
+import { t } from './i18n.jsx';
 
 const TABS = [
   { id: 'lists', label: 'Seznamy', icon: '📝' },
@@ -18,7 +19,14 @@ const TABS = [
 
 export default function App() {
   const { state, sync } = useStore();
-  const [tab, setTab] = useState('lists');
+  // Záložku si pamatujeme, aby přepnutí jazyka (vykreslí aplikaci znovu) nevrátilo uživatele na Seznamy.
+  const [tab, setTabState] = useState(() => {
+    try { return sessionStorage.getItem('nakupak-tab') || 'lists'; } catch { return 'lists'; }
+  });
+  const setTab = (id) => {
+    setTabState(id);
+    try { sessionStorage.setItem('nakupak-tab', id); } catch {}
+  };
   const [listId, setListId] = useState(null);
   const [shopping, setShopping] = useState(false);
   const [msg, setMsg] = useState(null);
@@ -52,10 +60,10 @@ export default function App() {
       {screen}
       {!shopping && (
         <nav className="tabbar">
-          {TABS.map((t) => (
-            <button key={t.id} className={tab === t.id ? 'active' : ''} onClick={() => { setTab(t.id); if (t.id === 'lists' && tab === 'lists') setListId(null); }}>
-              <span className="tab-icon">{t.icon}{t.id === 'pantry' && expiring > 0 && <i className="dot">{expiring}</i>}{t.id === 'settings' && syncProblem && <i className={'sync-dot ' + syncProblem} />}</span>
-              <span>{t.label}</span>
+          {TABS.map((tab_) => (
+            <button key={tab_.id} className={tab === tab_.id ? 'active' : ''} onClick={() => { setTab(tab_.id); if (tab_.id === 'lists' && tab === 'lists') setListId(null); }}>
+              <span className="tab-icon">{tab_.icon}{tab_.id === 'pantry' && expiring > 0 && <i className="dot">{expiring}</i>}{tab_.id === 'settings' && syncProblem && <i className={'sync-dot ' + syncProblem} />}</span>
+              <span>{t(tab_.label)}</span>
             </button>
           ))}
         </nav>

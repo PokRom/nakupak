@@ -3,6 +3,7 @@ import { useStore, uid, addItemToList, groupBySection, learn, fmtQty, findInPant
 import { Header, Modal, Empty, AddItemBar, ItemEditor, SectionPicker } from '../components/ui.jsx';
 import { parseBulk } from '../data/normalize.js';
 import ApplyTemplate from './ApplyTemplate.jsx';
+import { t } from '../i18n.jsx';
 
 export default function ListDetail({ listId, onBack, onShop }) {
   const { state, mutate } = useStore();
@@ -55,7 +56,7 @@ export default function ListDetail({ listId, onBack, onShop }) {
       <Header
         title={list.name}
         onBack={onBack}
-        right={<button className="icon-btn" onClick={() => setMenu(true)} aria-label="Možnosti">⋯</button>}
+        right={<button className="icon-btn" onClick={() => setMenu(true)} aria-label={t('Možnosti')}>⋯</button>}
       />
       <div className="content">
         <div className="row gap wrap">
@@ -65,12 +66,12 @@ export default function ListDetail({ listId, onBack, onShop }) {
               {state.stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </label>
-          <button className="btn small" onClick={() => setTplPick(true)}>＋ Z profilu</button>
+          <button className="btn small" onClick={() => setTplPick(true)}>{t('＋ Z profilu')}</button>
         </div>
 
-        <AddItemBar onAdd={add} onBulk={bulk} placeholder="Přidat… (např. 2 kg brambory)" />
+        <AddItemBar onAdd={add} onBulk={bulk} placeholder={t('Přidat… (např. 2 kg brambory)')} />
 
-        {pending.length === 0 && <Empty icon="🛒">Seznam je prázdný. Napiš položku nebo vlož celý seznam oddělený čárkami.</Empty>}
+        {pending.length === 0 && <Empty icon="🛒">{t('Seznam je prázdný. Napiš položku nebo vlož celý seznam oddělený čárkami.')}</Empty>}
 
         {groups.map(({ section, items }) => (
           <div key={section.id} className="group" style={{ '--c': section.color }}>
@@ -80,7 +81,7 @@ export default function ListDetail({ listId, onBack, onShop }) {
               return (
                 <button key={it.id} className="item" onClick={() => setEditing(it)}>
                   <span className="item-name">{it.name}{it.note && <span className="muted"> · {it.note}</span>}</span>
-                  {home && <span className="tag" title="Máš doma">🏠 {fmtQty(home.quantity, home.unit) || 'doma'}</span>}
+                  {home && <span className="tag" title={t('Máš doma')}>🏠 {fmtQty(home.quantity, home.unit) || t('doma')}</span>}
                   <span className="item-qty">{fmtQty(it.quantity, it.unit)}</span>
                 </button>
               );
@@ -90,14 +91,14 @@ export default function ListDetail({ listId, onBack, onShop }) {
 
         {checkedCount > 0 && (
           <button className="btn ghost full" onClick={() => mutate((d) => { const l = d.lists.find((x) => x.id === listId); l.items = l.items.filter((i) => !i.checked); })}>
-            Smazat {checkedCount} koupených
+            {t('Smazat {n} koupených', { n: checkedCount })}
           </button>
         )}
       </div>
 
       {pending.length > 0 && (
         <div className="fab-wrap">
-          <button className="btn primary fab" onClick={onShop}>🛒 Jdu nakupovat</button>
+          <button className="btn primary fab" onClick={onShop}>{t('🛒 Jdu nakupovat')}</button>
         </div>
       )}
 
@@ -111,35 +112,35 @@ export default function ListDetail({ listId, onBack, onShop }) {
       )}
 
       {asking && (
-        <Modal title={`Kam patří „${asking.name}“?`} onClose={() => answer('ostatni')}>
-          <p className="muted">Zapamatuji si to pro příště.</p>
+        <Modal title={t('Kam patří „{name}“?', { name: asking.name })} onClose={() => answer('ostatni')}>
+          <p className="muted">{t('Zapamatuji si to pro příště.')}</p>
           <SectionPicker value={null} onPick={answer} />
         </Modal>
       )}
 
       {menu && (
-        <Modal title="Možnosti seznamu" onClose={() => setMenu(false)}>
+        <Modal title={t('Možnosti seznamu')} onClose={() => setMenu(false)}>
           <div className="menu">
-            <button onClick={() => { setMenu(false); setRename(list.name); }}>✏️ Přejmenovat</button>
-            <button onClick={() => { setMenu(false); setSaveTpl(true); }}>💾 Uložit jako profil</button>
+            <button onClick={() => { setMenu(false); setRename(list.name); }}>{t('✏️ Přejmenovat')}</button>
+            <button onClick={() => { setMenu(false); setSaveTpl(true); }}>{t('💾 Uložit jako profil')}</button>
             <button onClick={() => {
               const text = groups.map((g) => `${g.section.icon} ${g.section.name}\n` + g.items.map((i) => `- ${i.name} ${fmtQty(i.quantity, i.unit)}`.trim()).join('\n')).join('\n\n');
               if (navigator.share) navigator.share({ title: list.name, text }).catch(() => {});
               else navigator.clipboard?.writeText(text);
               setMenu(false);
-            }}>📤 Sdílet jako text</button>
+            }}>{t('📤 Sdílet jako text')}</button>
             <button className="danger-text" onClick={() => {
-              if (!confirm(`Smazat seznam „${list.name}“?`)) return;
+              if (!confirm(t('Smazat seznam „{name}“?', { name: list.name }))) return;
               mutate((d) => { d.lists = d.lists.filter((l) => l.id !== listId); });
               onBack();
-            }}>🗑️ Smazat seznam</button>
+            }}>{t('🗑️ Smazat seznam')}</button>
           </div>
         </Modal>
       )}
 
       {rename != null && (
-        <Modal title="Přejmenovat" onClose={() => setRename(null)} footer={
-          <button className="btn primary" onClick={() => { mutate((d) => { d.lists.find((l) => l.id === listId).name = rename.trim() || list.name; }); setRename(null); }}>Uložit</button>
+        <Modal title={t('Přejmenovat')} onClose={() => setRename(null)} footer={
+          <button className="btn primary" onClick={() => { mutate((d) => { d.lists.find((l) => l.id === listId).name = rename.trim() || list.name; }); setRename(null); }}>{t('Uložit')}</button>
         }>
           <input className="input" autoFocus value={rename} onChange={(e) => setRename(e.target.value)} />
         </Modal>
@@ -148,11 +149,11 @@ export default function ListDetail({ listId, onBack, onShop }) {
       {saveTpl && <SaveAsTemplate list={list} onClose={() => setSaveTpl(false)} />}
 
       {tplPick && (
-        <Modal title="Vložit z profilu" onClose={() => setTplPick(false)}>
-          {state.templates.length === 0 && <p className="muted">Nemáš žádný profil. Vytvoř ho v záložce Profily.</p>}
+        <Modal title={t('Vložit z profilu')} onClose={() => setTplPick(false)}>
+          {state.templates.length === 0 && <p className="muted">{t('Nemáš žádný profil. Vytvoř ho v záložce Profily.')}</p>}
           <div className="menu">
-            {state.templates.map((t) => (
-              <button key={t.id} onClick={() => { setTplPick(false); setTplApply(t); }}>{t.emoji} {t.name} <span className="muted">· {t.items.length} položek</span></button>
+            {state.templates.map((tpl) => (
+              <button key={tpl.id} onClick={() => { setTplPick(false); setTplApply(tpl); }}>{tpl.emoji} {tpl.name} <span className="muted">{t('· {n} položek', { n: tpl.items.length })}</span></button>
             ))}
           </div>
         </Modal>
@@ -174,12 +175,12 @@ function SaveAsTemplate({ list, onClose }) {
     onClose();
   }
   return (
-    <Modal title="Uložit jako profil" onClose={onClose} footer={<button className="btn primary" onClick={save}>Uložit</button>}>
+    <Modal title={t('Uložit jako profil')} onClose={onClose} footer={<button className="btn primary" onClick={save}>{t('Uložit')}</button>}>
       <div className="row gap">
         <input className="input emoji-input" value={emoji} onChange={(e) => setEmoji(e.target.value)} maxLength={4} />
         <input className="input" autoFocus value={name} onChange={(e) => setName(e.target.value)} />
       </div>
-      <p className="muted">Uloží se všech {list.items.length} položek včetně množství.</p>
+      <p className="muted">{t('Uloží se všech {n} položek včetně množství.', { n: list.items.length })}</p>
     </Modal>
   );
 }

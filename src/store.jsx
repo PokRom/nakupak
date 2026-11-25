@@ -2,28 +2,30 @@ import { createContext, useContext, useEffect, useRef, useState, useCallback } f
 import { DEFAULT_SECTIONS, DEFAULT_LOCATIONS } from './data/sections.js';
 import { classify, normalizeName } from './data/normalize.js';
 import { stampOrder } from './sync/flat.js';
+import { t, getLang, locale, secName, unitLabel } from './i18n.jsx';
 import { callApi, computeBase, diff, flatten, loadMeta, merge, normalizeCode, sameFlat, saveMeta, unflatten } from './sync/engine.js';
 
 const STORAGE_KEY = 'nakupak-state-v1';
 
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 
+// Výchozí data při prvním spuštění jsou v jazyce telefonu.
 function initialState() {
   const storeId = uid();
   return {
     sections: DEFAULT_SECTIONS,
     locations: DEFAULT_LOCATIONS,
-    stores: [{ id: storeId, name: 'Můj obchod', sectionOrder: DEFAULT_SECTIONS.map((s) => s.id), hidden: [] }],
-    lists: [{ id: uid(), name: 'Nákup', storeId, createdAt: Date.now(), items: [] }],
+    stores: [{ id: storeId, name: t('Můj obchod'), sectionOrder: DEFAULT_SECTIONS.map((s) => s.id), hidden: [] }],
+    lists: [{ id: uid(), name: t('Nákup'), storeId, createdAt: Date.now(), items: [] }],
     templates: [
       {
-        id: uid(), name: 'Snídaně', emoji: '🍳', servings: null, defaultStoreId: null,
+        id: uid(), name: t('Snídaně'), emoji: '🍳', servings: null, defaultStoreId: null,
         items: [
-          { id: uid(), name: 'Rohlíky', quantity: 6, unit: 'ks', sectionId: 'pecivo', note: '' },
-          { id: uid(), name: 'Máslo', quantity: 1, unit: 'ks', sectionId: 'mlecne', note: '' },
-          { id: uid(), name: 'Šunka', quantity: 150, unit: 'g', sectionId: 'maso', note: '' },
-          { id: uid(), name: 'Vejce', quantity: 10, unit: 'ks', sectionId: 'mlecne', note: '' },
-          { id: uid(), name: 'Mléko', quantity: 1, unit: 'l', sectionId: 'mlecne', note: '' },
+          { id: uid(), name: t('Rohlíky'), quantity: 6, unit: 'ks', sectionId: 'pecivo', note: '' },
+          { id: uid(), name: t('Máslo'), quantity: 1, unit: 'ks', sectionId: 'mlecne', note: '' },
+          { id: uid(), name: t('Šunka'), quantity: 150, unit: 'g', sectionId: 'maso', note: '' },
+          { id: uid(), name: t('Vejce'), quantity: 10, unit: 'ks', sectionId: 'mlecne', note: '' },
+          { id: uid(), name: t('Mléko'), quantity: 1, unit: 'l', sectionId: 'mlecne', note: '' },
         ],
       },
     ],
@@ -233,7 +235,7 @@ export function orderedSections(state, storeId) {
     if (pos < 0) order.push(s.id); else order.splice(pos, 0, s.id);
   }
   const hidden = new Set(store?.hidden || []);
-  return order.filter((id) => !hidden.has(id)).map((id) => byId[id]);
+  return order.filter((id) => !hidden.has(id)).map((id) => ({ ...byId[id], name: secName(byId[id]) }));
 }
 
 /** Položky seskupené do sekcí v pořadí obchodu. Položky ze skryté sekce spadnou do „Ostatní“. */
@@ -260,12 +262,13 @@ export function daysLeft(expiresAt) {
 export function fmtQty(q, u) {
   if (q == null || q === '') return '';
   const n = Math.round(q * 100) / 100;
-  return `${String(n).replace('.', ',')} ${u || 'ks'}`;
+  const num = getLang() === 'en' ? String(n) : String(n).replace('.', ',');
+  return `${num} ${unitLabel(u || 'ks')}`;
 }
 
 export function fmtDate(d) {
   if (!d) return '';
-  return new Date(d).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' });
+  return new Date(d).toLocaleDateString(locale(), { day: 'numeric', month: 'numeric' });
 }
 
 /** Když zásoba klesne pod minimum, doplní ji na seznam „Doplnit zásoby“ (nebo první seznam). */
@@ -273,7 +276,7 @@ export function checkMinimum(d, pantryItem) {
   if (pantryItem.minQuantity == null || (pantryItem.quantity ?? 0) >= pantryItem.minQuantity) return false;
   let list = d.lists[0];
   if (!list) {
-    list = { id: uid(), name: 'Doplnit zásoby', storeId: d.activeStoreId, createdAt: Date.now(), items: [] };
+    list = { id: uid(), name: t('Doplnit zásoby'), storeId: d.activeStoreId, createdAt: Date.now(), items: [] };
     d.lists.push(list);
   }
   const already = list.items.some((i) => !i.checked && normalizeName(i.name) === normalizeName(pantryItem.name));
@@ -283,7 +286,7 @@ export function checkMinimum(d, pantryItem) {
     quantity: pantryItem.minQuantity - (pantryItem.quantity ?? 0),
     unit: pantryItem.unit,
     sectionId: pantryItem.sectionId || classify(pantryItem.name, d.learned) || 'ostatni',
-    note: 'pod minimem v zásobách',
+    note: t('pod minimem v zásobách'),
   });
   return list.name;
 }
